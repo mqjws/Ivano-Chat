@@ -10,7 +10,6 @@ const generatedDir = join(sourceDir, "generated");
 const manifestFile = join(rootDir, "shared", "generated", "pwa-assets.ts");
 
 const assets = [
-  { source: "icon.svg", path: "/pwa/icon.svg" },
   { source: "icon-192.png", path: "/pwa/icon-192.png" },
   { source: "icon-512.png", path: "/pwa/icon-512.png" },
   { source: "icon-maskable-512.png", path: "/pwa/icon-maskable-512.png" },

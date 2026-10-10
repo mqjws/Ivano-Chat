@@ -2,10 +2,10 @@ import type { BrandingDTO } from "@/shared/api/branding";
 import { pwaAsset } from "@/shared/pwa/assets";
 
 export const DEFAULT_BRANDING: BrandingDTO = {
-  title: "DEEIX Chat",
-  shortName: "DEEIX",
-  description: "DEEIX Chat is a multi-model AI conversation system.",
-  logoURL: "",
+  title: "Ivano Chat",
+  shortName: "Ivano",
+  description: "Ivano 的个人 AI 聊天客户端",
+  logoURL: "/logo.png",
   faviconURL: "/favicon.ico",
   pwaIcon192URL: pwaAsset("/pwa/icon-192.png"),
   pwaIcon512URL: pwaAsset("/pwa/icon-512.png"),

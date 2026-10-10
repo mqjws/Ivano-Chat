@@ -42,10 +42,10 @@ security:
 
 branding:
   # Optional. Frontend product branding; changes take effect after restarting the app.
-  title: DEEIX Chat
-  short_name: DEEIX
-  description: DEEIX Chat is a multi-model AI conversation system.
-  logo_url: ""
+  title: Ivano Chat
+  short_name: Ivano
+  description: Ivano 的个人 AI 聊天客户端
+  logo_url: /logo.png
   favicon_url: /favicon.ico
   pwa_icon_192_url: /pwa/icon-192.png
   pwa_icon_512_url: /pwa/icon-512.png

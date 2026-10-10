@@ -171,4 +171,6 @@ docker-compose.local.yml
 .pnpm-store
 .worktrees/
 /1.txt
-/docs/
+# 忽略 docs 内容，但放行 docs/assets（README 截图需要进仓库）
+/docs/*
+!/docs/assets/

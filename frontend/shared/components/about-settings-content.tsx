@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { ExternalLink, Globe, Mail, Newspaper } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 
 import packageMeta from "@/package.json";
 import { Badge } from "@/components/ui/badge";
@@ -94,40 +94,16 @@ export function AboutSettingsContent({
 }: AboutSettingsContentProps) {
   const links: AboutLinkItem[] = [
     {
-      label: labels.website,
-      value: "deeix.com",
-      href: "https://deeix.com",
-      icon: Globe,
-    },
-    {
       label: labels.official,
       value: "DEEIX",
       href: "https://github.com/DEEIX-AI",
       providerIcon: { name: "GitHub", slug: "github" },
     },
     {
-      label: labels.social,
-      value: "@DEEIX_AI",
-      href: "https://x.com/DEEIX_AI",
-      providerIcon: { name: "X", slug: "x" },
-    },
-    {
       label: labels.repository,
       value: "DEEIX-Chat",
       href: "https://github.com/DEEIX-AI/DEEIX-Chat",
       providerIcon: { name: "GitHub", slug: "github" },
-    },
-    {
-      label: labels.blog,
-      value: "blog.cheny.me",
-      href: "https://blog.cheny.me/",
-      icon: Newspaper,
-    },
-    {
-      label: labels.contact,
-      value: "support@deeix.com",
-      href: "mailto:support@deeix.com",
-      icon: Mail,
     },
   ];
 

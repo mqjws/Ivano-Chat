@@ -1,66 +1,90 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./frontend/public/logo-white.svg" />
-    <img src="./frontend/public/logo-black.svg" alt="DEEIX Chat" width="160" />
-  </picture>
+  <img src="./ico/ivano-chat.png" alt="Ivano Chat" width="600" />
+</p>
+
+
+<h1 align="center">Ivano Chat</h1>
+
+<p align="center">
+  基于 <a href="https://github.com/deeix-ai/deeix-chat">DEEIX Chat</a> 二次开发的个人 AI 聊天客户端<br/>
+  A personal AI chat client built as a secondary development of DEEIX Chat
 </p>
 
 <p align="center">
-  An integrated AI platform for enterprise model routing, chat, files, tools, billing, identity, and operations.
+  <a href="#english">English</a> | <a href="#简体中文">简体中文</a>
 </p>
 
 <p align="center">
-  English | <a href="./docs/README.zh-CN.md">简体中文</a>
-</p>
-
-<p align="center">
-  <a href="https://deeix.com"><img alt="Website" src="https://img.shields.io/badge/Website-deeix.com-black" /></a>
-  <a href="https://deeix.com/docs/deeix-chat/quickstart"><img alt="Guide" src="https://img.shields.io/badge/Guide-Quickstart-0f766e" /></a>
-  <a href="https://t.me/deeix_chat"><img alt="Telegram" src="https://img.shields.io/badge/Telegram-deeix_chat-26A5E4?logo=telegram&logoColor=white" /></a>
-  <a href="https://x.com/DEEIX_AI"><img alt="X" src="https://img.shields.io/badge/X-%40DEEIX_AI-black?logo=x&logoColor=white" /></a>
-  <a href="https://www.apache.org/licenses/LICENSE-2.0"><img alt="License" src="https://img.shields.io/badge/License-Apache%202.0-blue" /></a>
+  <img alt="Status" src="https://img.shields.io/badge/status-WIP-orange" />
+  <img alt="License" src="https://img.shields.io/badge/License-Apache%202.0-blue" />
   <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black" />
   <img alt="React" src="https://img.shields.io/badge/React-19-149eca" />
   <img alt="Go" src="https://img.shields.io/badge/Go-1.26-00add8" />
 </p>
 
-## Overview
+---
 
-DEEIX Chat is an open-source, deployable AI platform for individuals, teams, and enterprises that need long-term, stable, and unified access to multiple model providers. It provides one clear entry point for multiple upstream models and providers, integrating multimodal chat, model routing, files and RAG, MCP tools, usage billing, identity, audit logs, and operational controls into one product.
+<h2 id="english">English</h2>
 
-The system is designed around simple deployment, efficient static delivery, and a low runtime resource footprint: lightweight without feeling limited, restrained without losing capability, and open without becoming disorderly.
+> This project is documented in both English and Chinese. The Chinese section follows below.
 
-![DEEIX Chat workspace](./docs/assets/screenshots/DEEIX-Chat.jpg)
+### Overview
 
-## Features
+Ivano Chat is a personal, self-hosted AI chat client built as a **secondary development of [DEEIX Chat](https://github.com/deeix-ai/deeix-chat)** (v0.4.3, Apache License 2.0).
+
+The goal is to keep the complete account-based platform that the upstream project already provides — registration, login, conversations, history, model routing, files, tools, and billing — and to add one new capability on top: a **guest mode**.
+
+With guest mode, a visitor can start chatting **without registering**. The conversation is stored only in that visitor's own browser and is never written to the server's chat history. Guest usage is metered against the site's public guest budget, with per-visitor quotas, rate limits, and a whitelist of allowed models.
+
+> Ivano Chat is a secondary development based on DEEIX Chat and is independently maintained by Ivano. The original project is licensed under the Apache License 2.0.
+
+### Development status
+
+**This project is in early development.** The current code base is still the upstream DEEIX Chat v0.4.3 baseline: the guest feature is **not implemented yet**, and the running application still behaves like the original DEEIX Chat.
+
+| Stage | Scope | Status |
+| --- | --- | --- |
+| 0 | Source review and baseline | Baseline review done, pending acceptance |
+| 1 | Branding name change | Not started |
+| 2 | Guest identity and billing API design | Not started |
+| 3 | Guest inference and budget settlement | Not started |
+| 4 | Login-page entry and guest chat page | Not started |
+| 5 | Browser cache and identity switching | Not started |
+| 6 | Admin guest settings | Not started |
+| 7 | Regression testing and deployment docs | Not started |
+
+Each stage is implemented, verified, and then explicitly accepted before the next one starts.
+
+### Planned feature: guest mode
+
+Not yet implemented — this is the design target.
+
+- **No registration required.** A visitor clicks "chat as a guest" on the login page and lands on a dedicated `/guest` page.
+- **Browser-local conversation.** Messages are stored in IndexedDB on the visitor's own device, expiring 24 hours after the last update. The server does **not** persist message bodies (not in the database, logs, audit trail, or content moderation pipeline).
+- **Site-funded.** Guest calls are billed against a dedicated, non-login guest billing principal funded by the site's public guest budget.
+- **Metered and rate-limited.** Per-visitor daily budget, generation count, request frequency, and concurrency limits, plus a site-wide daily budget and concurrency cap. Limits are enforced on the server, not merely hidden in the UI.
+- **Whitelisted models.** Guests can only use text models explicitly enabled by the administrator.
+- **Quota cannot be reset by clearing the browser.** Budgets and counters live on the server; clearing the cache, starting a new chat, or refreshing does not restore quota.
+
+Intentionally **out of scope** for the first version: file upload, knowledge bases and personal memory, MCP and external tools, image/audio/video generation, conversation sharing and cross-device sync, and importing guest chats into an account.
+
+### Retained upstream capabilities
 
 | Area | Capabilities |
 | --- | --- |
-| Conversations | A multimodal chat interface for daily use, with streaming, branches, retries, edits, feedback, sharing, rich rendering, and traceable model execution metadata. |
-| Models and routing | A platform-model layer for upstream channels, real models, route bindings, priority, weights, circuit breaking, vendor mapping, and capability configuration, reducing the cost of multi-provider operations. |
-| Protocols and adaptation | Unified support for OpenAI, Anthropic, Google/Gemini, xAI, OpenRouter, and OpenAI-compatible protocols across text, image, tools, and provider-native capability differences. |
-| Files and retrieval | File upload, preview, extraction, OCR, storage quota, full-context injection, chunking, embeddings, and semantic retrieval so file content can naturally enter the conversation context. |
-| Tool ecosystem | MCP servers and provider-native official tools with discovery, enablement, user selection, execution limits, result rendering, and tool-call traceability. |
-| Context and memory | Message windows, token budgets, summary compression, conversation memory, long-term memory, and RAG evidence records for controlled-cost continuity. |
-| Billing and payments | Model pricing, per-call tool pricing, subscriptions, top-ups, balances, usage ledgers, billing snapshots, Stripe Checkout, EPay, and webhook validation. |
-| Identity and security | Local accounts, session management, HttpOnly refresh cookies, 2FA/TOTP, trusted devices, SSO/OIDC/OAuth, contact verification, and encrypted sensitive data. |
-| Administration and audit | Centralized management for users, roles, upstreams, models, routes, pricing, subscriptions, balances, usage logs, audit logs, auth events, and system events. |
-| Deployment and operations | Single-runtime frontend/API serving, Docker deployment, SQLite or PostgreSQL, in-memory cache or Redis, S3-compatible storage, Swagger, structured logs, version endpoint, GeoIP, and OpenTelemetry. |
+| Conversations | Multimodal chat with streaming, branches, retries, edits, feedback, sharing, and rich rendering. |
+| Models and routing | Platform-model layer for upstream channels, routes, priority, weights, circuit breaking, and capability config. |
+| Protocols | Unified OpenAI, Anthropic, Google/Gemini, xAI, OpenRouter, and OpenAI-compatible support. |
+| Files and retrieval | Upload, preview, extraction, OCR, storage quota, chunking, embeddings, and semantic retrieval. |
+| Tools | MCP servers and provider-native tools with discovery, enablement, limits, and traceability. |
+| Billing | Model and tool pricing, subscriptions, top-ups, balances, usage ledgers, Stripe Checkout, and EPay. |
+| Identity and security | Local accounts, sessions, 2FA/TOTP, trusted devices, SSO/OIDC/OAuth, and encrypted secrets. |
+| Administration | Users, roles, upstreams, models, routes, pricing, usage logs, audit logs, and system events. |
+| Deployment | Single-runtime static serving, Docker, SQLite or PostgreSQL, in-memory cache or Redis, S3-compatible storage. |
 
-<p align="center">
-  <img src="./docs/assets/screenshots/DEEIX-Chat-Image.png" alt="DEEIX Chat image generation" width="49.45%" />
-  <img src="./docs/assets/screenshots/DEEIX-Chat-Dark.png" alt="DEEIX Chat dark mode" width="49.45%" />
-</p>
+### Architecture and tech stack
 
-<p align="center">
-  <img src="./docs/assets/screenshots/DEEIX-Chat-Usage.png" alt="DEEIX Chat usage and billing" width="32.3%" />
-  <img src="./docs/assets/screenshots/DEEIX-Chat-Artifacts.png" alt="DEEIX Chat artifacts" width="32.3%" />
-  <img src="./docs/assets/screenshots/DEEIX-Chat-Html.png" alt="DEEIX Chat HTML rendering" width="32.3%" />
-</p>
-
-## Architecture and Tech Stack
-
-DEEIX Chat uses a split frontend/backend development model with a single-runtime deployment path. The frontend is built into static assets and served by the Go service, while APIs, authorization, model routing, files, billing, and audit capabilities run in the same backend runtime. Heavy document extraction and OCR capabilities are optional services, keeping the base deployment lightweight.
+The frontend is built into static assets and served by the Go service, while APIs, authorization, routing, files, and billing run in the same backend runtime. Heavy document extraction and OCR remain optional services.
 
 ```mermaid
 flowchart TB
@@ -102,418 +126,193 @@ flowchart TB
   Infra --> Storage
 ```
 
-| Layer | Responsibility | Technologies |
-| --- | --- | --- |
-| Frontend | Chat UI, admin console, and static builds | Next.js 16, React 19, TypeScript, Tailwind CSS, Shadcn/UI, Streamdown, KaTeX, Mermaid, Recharts, Motion |
-| Backend runtime | APIs, authentication, authorization, orchestration, protocol adaptation, and static serving | Go 1.26, Gin, Gorm, Swagger, OpenTelemetry, Zap |
-| Data and cache | Domain data, vector retrieval, session state, and runtime cache | PostgreSQL, pgvector, SQLite, sqlite-vec, Redis, in-memory cache |
-| Files and storage | Uploaded files, generated files, object storage, and local persistence | Local filesystem, S3-compatible object storage |
-| File processing | Text extraction, OCR, document parsing, and LLM OCR fallback | Built-in extractors, Apache Tika, Docling, RapidOCR, Tesseract OCR, Paddle OCR, cloud OCR adapters, MinerU |
-| Tool protocol | MCP tool integration and provider-native official tools | MCP Streamable HTTP JSON-RPC, provider-native tools |
-| Deployment runtime | Lightweight single-node deployment or multi-node production deployment | Docker, Docker Compose, SQLite/in-memory cache, PostgreSQL/Redis |
+| Layer | Technologies |
+| --- | --- |
+| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS, Shadcn/UI |
+| Backend | Go 1.26, Gin, Gorm, Swagger, OpenTelemetry, Zap |
+| Data and cache | PostgreSQL, pgvector, SQLite, sqlite-vec, Redis, in-memory cache |
+| Files and storage | Local filesystem, S3-compatible object storage |
+| File processing | Built-in extractors, Apache Tika, Docling, RapidOCR, Tesseract, cloud OCR adapters |
+| Deployment | Docker, Docker Compose |
 
-The backend keeps clear internal boundaries: `backend/cmd/server` is the executable entrypoint, `backend/internal/cli` owns process startup, `backend/internal/app` assembles and wires the application, and `backend/internal/transport/http` owns the HTTP boundary. Requests then flow through `application` use cases to consumer-owned `repository` or `ports` interfaces and their `infra` implementations. The data layer uses domain-prefixed tables, while financial records, audit trails, system events, and high-growth vector data remain separate sources of truth.
-
-## Repository Layout
+### Repository layout
 
 ```text
 .
 ├── backend/                  # Go API and single-runtime server
 │   ├── cmd/server/            # executable entrypoint
-│   ├── internal/
-│   │   ├── cli/               # process startup
-│   │   ├── app/               # dependency wiring and lifecycle
-│   │   ├── application/       # use cases and orchestration
-│   │   ├── domain/            # business concepts and rules
-│   │   ├── ports/              # outbound integration contracts
-│   │   ├── repository/         # persistence contracts
-│   │   ├── infra/              # persistence, cache, storage, providers
-│   │   ├── transport/http/     # handlers, DTOs, middleware, routes
-│   │   └── shared/             # cross-cutting response and security code
+│   ├── internal/              # app, application, domain, infra, transport
 │   └── docs/                  # generated Swagger artifacts
 ├── frontend/                 # Next.js App Router and static export
 │   ├── app/                   # route entries and layouts
 │   ├── features/              # feature-owned UI and client workflows
 │   ├── entities/              # reusable business entities
 │   ├── shared/                # API, auth, UI, hooks, models, utilities
-│   ├── components/            # UI primitives and visual components
 │   └── public/                # static assets
 ├── packages/api-contract/     # generated TypeScript API contract
 ├── docker/                    # optional extraction and OCR services
-├── docs/                      # project guides and screenshots
+├── docs/                      # project docs and development records (local, not committed)
 ├── config*.example.yaml       # deployment profile templates
 ├── docker-compose*.yml        # deployment profiles
 └── Dockerfile                 # frontend + backend production image
 ```
 
-`frontend/` and `backend/` are independent workspaces managed by pnpm and Turborepo. `packages/api-contract/` connects them through generated Swagger types; update the Go transport contract first, then regenerate the shared package.
+### Quick start
 
-## Prerequisites
-
-- Node.js 20.9 or newer (the repository Docker image and CI use Node.js 24).
-- pnpm 10.17.0, normally enabled through Corepack.
-- Go 1.26.8 for backend development.
-- Docker Engine with Docker Compose v2 for container deployments or local PostgreSQL/Redis services.
-
-The SQLite profile does not require a separately managed database or cache. The default development configuration uses PostgreSQL and Redis; the full Compose profile starts both services for you.
-
-## Quick Start
-
-> Quick installation guide: [Quick Start](https://deeix.com/docs/deeix-chat/quickstart).
-
-### Local Development
-
-Local development is intended for editing source code and running the frontend and backend separately. The default config connects to local PostgreSQL and Redis. If you only want a low-dependency trial, use the lightweight Docker installation below.
-
-1. Prepare backend configuration:
+Prerequisites: Node.js 20.9+ (the Docker image uses Node.js 24), pnpm 10.17.0 via Corepack, Go 1.26.8, and optionally Docker with Compose v2.
 
 ```bash
-cp config.example.yaml config.yaml
-```
-
-Adjust `database.postgres.dsn`, `database.redis.*`, and public URLs in `config.yaml` for your local environment.
-
-2. Install workspace dependencies and prepare the frontend environment:
-
-```bash
+# Local development (default profile uses PostgreSQL + Redis)
+cp config.example.yaml config.yaml       # then edit DSN / Redis / public URLs
 pnpm install
 cp frontend/.env.example frontend/.env.local
-```
-
-3. Start the frontend and backend together:
-
-```bash
 pnpm dev
 ```
 
-Use `pnpm dev:web` or `pnpm dev:api` to start only one workspace.
-
-The frontend uses `NEXT_PUBLIC_API_BASE_URL` for API requests. For local development, confirm that `frontend/.env.local` contains:
-
-```env
-NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8080
-```
-
-Service URLs and probes:
-
-| Service | URL |
-| --- | --- |
-| Frontend | `http://localhost:3000` |
-| API | `http://localhost:8080` |
-| Liveness | `http://localhost:8080/healthz` |
-| Readiness | `http://localhost:8080/readyz` |
-| Version | `http://localhost:8080/api/v1/version` |
-| Swagger (development only) | `http://localhost:8080/swagger/index.html` |
-
-If `NEXT_PUBLIC_API_BASE_URL` is omitted, local development defaults to `localhost:8080`; same-origin deployments use the current origin.
-
-### Workspace Commands
-
-Run workspace commands from the repository root:
-
-| Command | Purpose |
-| --- | --- |
-| `pnpm dev` | Start the frontend and backend in watch mode. |
-| `pnpm dev:web` | Start only the Next.js frontend. |
-| `pnpm dev:api` | Start only the Go API. |
-| `pnpm check` | Run workspace lint, type, backend version, and API contract checks. |
-| `pnpm test` | Run workspace tests. |
-| `pnpm build` | Build the static frontend and backend binary. |
-| `pnpm verify` | Run checks, tests, and builds together. |
-| `pnpm api:generate` | Regenerate Swagger artifacts and TypeScript API types. |
-| `pnpm api:check` | Check that generated API artifacts are up to date. |
-
-The frontend is exported as static files, so `pnpm build` writes the browser artifact to `frontend/out`. The Go service can serve that directory in the production image or through `server.frontend_dist_dir`.
-
-### Docker Deployment
-
-Run the following Docker commands from the repository root. Choose one installation profile first, then copy the matching config file. All root compose profiles expose the app at `http://localhost:8080` by default and mount the repository-level `config.yaml` to `/app/config.yaml` inside the container.
-
-| Profile | Use case | Config file | Compose file | Built-in dependencies |
-| --- | --- | --- | --- | --- |
-| Lightweight | Local evaluation, personal use, small single-node deployments | `config.sqlite.example.yaml` | `docker-compose.sqlite.yml` | App only, SQLite + sqlite-vec + in-memory cache |
-| Default | External PostgreSQL and Redis already exist | `config.example.yaml` | `docker-compose.yml` | App only |
-| Full | Single-machine stack with app, PostgreSQL, and Redis | `config.full.example.yaml` | `docker-compose.full.yml` | App, PostgreSQL, Redis |
-
-#### 1. Lightweight Installation: SQLite
-
-This is the lowest-dependency deployment. It starts only the `app` container, stores data and local vector indexes in SQLite, and uses the in-process memory cache. Use it for local evaluation, personal deployments, and small single-node setups.
+Lightweight single-node trial with SQLite and an in-memory cache:
 
 ```bash
 cp config.sqlite.example.yaml config.yaml
 docker compose -f docker-compose.sqlite.yml up -d
 ```
 
-SQLite + memory cache is single-process only. It is good for local use, evaluation, and small single-node deployments. Use PostgreSQL + Redis for multi-node or high-concurrency production deployments.
+The app listens on `http://localhost:8080` (frontend dev server on `http://localhost:3000`). Probes: `/healthz`, `/readyz`, `/api/v1/version`. On first startup, if no superadmin exists, the backend prints an initial `admin` password **once** in its logs; the first login forces a credential change.
 
-#### 2. Default Installation: External PostgreSQL + Redis
+### Documentation
 
-Use this when PostgreSQL and Redis are already managed outside this compose stack. Before starting, set database and Redis addresses to values reachable from inside the container; if the services run on the Docker host, `host.docker.internal` is usually the right hostname.
-
-```bash
-cp config.example.yaml config.yaml
-# Edit database.postgres.dsn, database.redis.*, and public URLs.
-docker compose up -d
-```
-
-The default `docker-compose.yml` starts only the application container. Keep compose `environment` empty unless you intentionally want environment variables to override `config.yaml`.
-
-#### 3. Full Installation: PostgreSQL + Redis Containers
-
-Use this when you want compose to start the app, PostgreSQL, and Redis together.
-
-```bash
-cp config.full.example.yaml config.yaml
-docker compose -f docker-compose.full.yml up -d
-```
-
-`docker-compose.full.yml` sets `POSTGRES_DSN`, `REDIS_ADDR`, `REDIS_USERNAME`, and `REDIS_PASSWORD` in compose `environment`, so those values override the database and Redis values in `config.yaml`.
-
-#### Configuration, Persistence, and Image
-
-Configuration priority is `environment variables > config.yaml > built-in defaults`. `config.yaml` is for static infrastructure and security configuration such as server URLs, database, cache, storage, GeoIP, tracing, JWT, and encryption keys. Runtime business settings are stored in the database and managed in the admin console.
-
-The default compose files persist application data:
-
-| Data | Container path |
-| --- | --- |
-| SQLite database | `/app/data/deeix.db` |
-| Uploaded and generated files | `/app/storage` |
-| PostgreSQL data | `/var/lib/postgresql/data`, full installation only |
-| Redis data | `/data`, full installation only |
-
-The default application image is `ghcr.io/deeix-ai/deeix-chat:latest`. Compose files reference an image and do not define a build step. Build a local image first, then select it with `DEEIX_CHAT_IMAGE`:
-
-```bash
-docker build -t deeix-chat:local .
-DEEIX_CHAT_IMAGE=deeix-chat:local docker compose up -d
-```
-
-Use the matching `-f docker-compose.sqlite.yml` or `-f docker-compose.full.yml` option when starting another profile.
-
-`APP_ENV` accepts `dev`/`development` and `prod`/`production`, normalizes them to `dev` or `prod`, and defaults to `prod` when omitted. Use `dev` only for local development. Public production deployments should keep `APP_ENV=prod` or `APP_ENV=production` and use production secrets.
-
-#### Optional Installation Services
-
-These services are optional. Start only the ones you enable in the admin console or `config.yaml`.
-They attach to `deeix-chat-network`; start one root compose profile first, or create the network manually with `docker network create deeix-chat-network`.
-
-```bash
-docker compose -f docker/tika/docker-compose.yml up -d
-docker compose -f docker/tesseract/docker-compose.yml up -d --build
-docker compose -f docker/docling/docker-compose.yml up -d --build
-```
-
-Default local endpoints:
-
-| Service | URL | Purpose |
-| --- | --- | --- |
-| Tika | `http://127.0.0.1:9998` | Document text extraction |
-| Tesseract OCR | `http://127.0.0.1:8004/ocr` | OCR service |
-| Docling | `http://127.0.0.1:8005/ocr` | Document/OCR extraction |
-
-`docker/rapidocr` currently provides a Dockerfile and app entrypoint, but no compose file. Add a compose file or run it manually if you choose RapidOCR.
-
-### Separated Deployment
-
-Use this mode when the frontend and backend are served from different public origins, for example `https://chat.example.com` and `https://api.example.com`.
-
-1. Configure public URLs.
-
-   - Frontend build variable: `NEXT_PUBLIC_API_BASE_URL=https://api.example.com`
-   - Backend config: `server.public_api_base_url=https://api.example.com`
-   - Backend config: `server.public_web_base_url=https://chat.example.com`
-   - Backend config: `server.cors_allow_origin=https://chat.example.com`
-
-   For Docker image builds, pass the frontend API URL at build time:
-
-   ```bash
-   docker build --build-arg NEXT_PUBLIC_API_BASE_URL=https://api.example.com -t deeix-chat .
-   ```
-
-2. Build and publish the frontend.
-
-   ```bash
-   pnpm install
-   NEXT_PUBLIC_API_BASE_URL=https://api.example.com pnpm --filter @deeix/web build
-   ```
-
-   The static output is `frontend/out`. Serve it with Nginx, CDN, object storage, or any static web server. To let the Go backend serve the frontend, place `frontend/out` under `server.frontend_dist_dir`; the Docker image defaults to `/app/frontend/out`.
-
-3. Apply CDN rules.
-
-   | Path | Rule |
-   | --- | --- |
-   | `/_next/static/*` | Cache for 1 year with immutable assets enabled. |
-   | `/logo*.svg`, `/*.ico`, `/*.png`, `/*.jpg`, `/*.webp`, `/*.woff2` | Cache for 1 day to 30 days. |
-   | `/`, `/*.html`, `/login*`, `/auth*`, `/chat*`, `/recent*`, `/files*`, `/knowledges*`, `/skills-prompt*`, `/setting*`, `/admin*`, `/share*`, `/preview*` | Do not long-cache. Use `no-cache` or a short TTL. |
-   | `/api/*`, `/healthz`, `/readyz`, `/swagger/*` | Bypass CDN cache and forward all request headers, methods, query strings, and request bodies. |
-
-   If the CDN serves `frontend/out` from object storage, enable route fallback so clean URLs resolve to their exported `index.html` files, for example `/chat` -> `/chat/index.html`.
-
-### Startup Check and First Login
-
-After the application starts, verify liveness, readiness, the mounted config file, and startup logs. For Docker deployments:
-
-```bash
-curl http://localhost:8080/healthz
-curl http://localhost:8080/readyz
-docker compose exec app ls -l /app/config.yaml
-docker compose logs app
-```
-
-Swagger is registered only when `APP_ENV=dev` or `APP_ENV=development`; production deployments intentionally do not expose the Swagger UI route.
-
-If the database does not contain a superadmin account, the backend creates the initial administrator on first startup and prints the initial password only once.
-
-| Item | Description |
-| --- | --- |
-| Initial username | `admin` |
-| Initial password | Inspect backend startup logs, search for `bootstrap superadmin created`, and read the `password` field. |
-| First login | The system requires changing the username and password. |
-| Later changes | Use the account flow or admin console; credentials are not managed through `config.yaml`. |
-
-If a superadmin already exists, the service does not regenerate or print the initial password again.
-
-## Configuration
-
-> Full configuration guide: [Configuration](https://deeix.com/docs/deeix-chat/configuration).
-
-Backend configuration is split into static runtime configuration and runtime business settings. Static runtime configuration describes branding and the infrastructure, security, and storage parameters required to start the service, and is provided through `config.yaml` and environment variables. Runtime business settings cover product capabilities such as authentication, conversations, models, files, and billing; they are stored in `system_settings` and maintained from the admin console. Environment variables override matching config-file values, which is useful for containerized deployments, separated deployments, and secret injection.
-
-At startup, the backend resolves the default config file from the working directory: starting from the repository root reads `config.yaml`, while starting from `backend/` reads `../config.yaml`. Docker deployments usually mount host `./config.yaml` as read-only `/app/config.yaml` inside the container. If the config file is stored elsewhere, set `CONFIG_FILE` to a path accessible from the running process or container. The effective priority is `environment variables > config.yaml > built-in defaults`.
-
-Frontend branding is also runtime configuration. Set the `branding` section in `config.yaml`, then restart the application; rebuilding the frontend or Docker image is not required. See [Custom branding](docs/BRANDING.md).
-
-Static configuration environment variables:
-
-| Area | Environment variable | Purpose |
-| --- | --- | --- |
-| Frontend build | `NEXT_PUBLIC_API_BASE_URL` | Browser API base URL; set in `frontend/.env.local` for local dev or at build time for separated deployment. |
-| Config file | `CONFIG_FILE` | Optional config file path; Docker values should use the container path. |
-| Application | `APP_NAME` | Application name. |
-| Application | `APP_ENV` | Runtime environment: `dev`/`development` or `prod`/`production`; omitted values default to `prod`. |
-| HTTP service | `HTTP_PORT` | API/runtime port. |
-| HTTP service | `CORS_ALLOW_ORIGIN` | Allowed CORS origins, comma-separated. |
-| HTTP service | `TRUSTED_PROXIES` | Trusted proxy CIDR list. |
-| HTTP service | `PUBLIC_API_BASE_URL` | Public API URL for links, callbacks, and public URL generation. |
-| HTTP service | `PUBLIC_WEB_BASE_URL` | Public Web URL for links, callbacks, and public URL generation. |
-| HTTP service | `FRONTEND_DIST_DIR` | Frontend static output directory. |
-| HTTP service | `HTTP_READ_HEADER_TIMEOUT_SECONDS` | HTTP read-header timeout. |
-| HTTP service | `HTTP_READ_TIMEOUT_SECONDS` | HTTP request read timeout. |
-| HTTP service | `HTTP_IDLE_TIMEOUT_SECONDS` | HTTP keep-alive idle timeout. |
-| HTTP service | `HTTP_MAX_HEADER_BYTES` | Maximum HTTP request header size. |
-| Security | `JWT_SECRET` | JWT signing secret. |
-| Security | `DATA_ENCRYPTION_KEY` | Key material for upstream API keys, SSO secrets, MCP tokens, sensitive settings, and TOTP secrets. |
-| Security | `SSRF_PROTECTION_ENABLED` | Enables outbound SSRF protection. |
-| Security | `SSRF_ALLOWED_HOSTS` | Exact hostnames for deployment-level integrations or trusted private redirect targets, comma-separated. |
-| Security | `SSRF_ALLOWED_CIDRS` | Trusted deployment-level integration or private redirect CIDRs, comma-separated. |
-| Security | `TURNSTILE_SITEVERIFY_URL` | Cloudflare Turnstile siteverify endpoint. |
-| Database | `DATABASE_DRIVER` | `postgres` or `sqlite`. |
-| PostgreSQL | `POSTGRES_DSN` | PostgreSQL DSN. |
-| PostgreSQL | `POSTGRES_MAX_OPEN_CONNS` | Maximum open connections. |
-| PostgreSQL | `POSTGRES_MAX_IDLE_CONNS` | Maximum idle connections. |
-| PostgreSQL | `POSTGRES_CONN_MAX_LIFETIME_MINUTES` | Maximum connection lifetime. |
-| PostgreSQL | `POSTGRES_CONN_MAX_IDLE_TIME_MINUTES` | Maximum idle connection time. |
-| SQLite | `SQLITE_PATH` | Database file path. |
-| SQLite | `SQLITE_DSN` | Full DSN; takes priority over path-based DSN construction. |
-| SQLite | `SQLITE_MAX_OPEN_CONNS` | Maximum open connections, default `1`. |
-| SQLite | `SQLITE_BUSY_TIMEOUT_MS` | Busy timeout. |
-| SQLite | `SQLITE_CACHE_SIZE_KB` | Page cache size. |
-| SQLite | `SQLITE_MMAP_SIZE_BYTES` | Mmap size. |
-| SQLite | `SQLITE_SYNCHRONOUS` | Synchronous mode: `OFF`, `NORMAL`, `FULL`, or `EXTRA`. |
-| SQLite | `SQLITE_TEMP_STORE` | Temporary storage: `DEFAULT`, `FILE`, or `MEMORY`. |
-| Cache | `CACHE_DRIVER` | `redis` or `memory`; `memory` is single-process only. |
-| Redis | `REDIS_ADDR` | Redis address. |
-| Redis | `REDIS_USERNAME` | Redis ACL username; leave empty for password-only/default-user Redis. |
-| Redis | `REDIS_PASSWORD` | Redis password. |
-| Redis | `REDIS_DB` | Redis DB number. |
-| Redis | `REDIS_TLS_ENABLED` | Enable TLS for Redis connections, for example Upstash Redis. |
-| Redis | `REDIS_TLS_INSECURE_SKIP_VERIFY` | Skip Redis TLS certificate verification; keep `false` unless required by a nonstandard endpoint. |
-| Storage | `STORAGE_BACKEND` | `local` or `s3`. |
-| Local storage | `STORAGE_ROOT_DIR` | Local file storage directory. |
-| S3 storage | `STORAGE_S3_ENDPOINT` | S3-compatible endpoint. |
-| S3 storage | `STORAGE_S3_REGION` | S3 region; required when S3 storage is enabled. |
-| S3 storage | `STORAGE_S3_BUCKET` | S3 bucket; required when S3 storage is enabled. |
-| S3 storage | `STORAGE_S3_PREFIX` | S3 object prefix. |
-| S3 storage | `STORAGE_S3_ACCESS_KEY_ID` | S3 Access Key ID. |
-| S3 storage | `STORAGE_S3_SECRET_ACCESS_KEY` | S3 Secret Access Key. |
-| S3 storage | `STORAGE_S3_FORCE_PATH_STYLE` | Whether to use path-style access. |
-| GeoIP | `GEOIP_PROVIDER` | `none`, `ipwhois`, `ipinfo`, or `mmdb`. |
-| GeoIP | `GEOIP_BASE_URL` | GeoIP HTTP service URL, default `https://ipwho.is`. |
-| GeoIP | `GEOIP_TOKEN` | GeoIP service token. |
-| GeoIP | `GEOIP_TIMEOUT_MS` | GeoIP request timeout. |
-| GeoIP | `GEOIP_DATABASE_URL` | MMDB download URL. |
-| GeoIP | `GEOIP_DATABASE_PATH` | Local MMDB path. |
-| GeoIP | `GEOIP_DATABASE_MAX_BYTES` | Maximum MMDB download size. |
-| GeoIP | `GEOIP_REFRESH_INTERVAL_HOURS` | MMDB refresh interval. |
-| OpenTelemetry | `OTEL_ENABLED` | Enables tracing; when omitted, a configured endpoint enables tracing automatically. |
-| OpenTelemetry | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint. |
-| OpenTelemetry | `OTEL_EXPORTER_OTLP_HEADERS` | OTLP headers in `key=value,key2=value2` format. |
-| OpenTelemetry | `OTEL_EXPORTER_OTLP_INSECURE` | Whether to use plaintext transport. |
-| OpenTelemetry | `OTEL_EXPORTER_OTLP_PROTOCOL` | OTLP exporter protocol: `grpc`, `http`, or `http/protobuf`; defaults to `grpc`. |
-| OpenTelemetry | `OTEL_TRACES_SAMPLER_ARG` / `OTEL_SAMPLING_RATE` | Trace sampling rate from `0` to `1`; `OTEL_TRACES_SAMPLER_ARG` takes priority. |
-
-Authentication, registration, conversation settings, model option policies, file processing, RAG, embedding, MCP, billing, payments, and announcements are runtime business settings, not static YAML configuration. Their defaults are seeded by the backend and maintained in the admin console.
-
-When SSRF protection is enabled in production, administrator-saved model, MCP, Embedding, OIDC/OAuth2, and custom Turnstile endpoints are authorized locally by exact origin (`scheme + host + port`) and do not require entries in the global allowlist. Model, MCP, and Embedding redirects retain standard compatibility: public cross-origin targets are allowed, while private cross-origin targets must match `SSRF_ALLOWED_HOSTS` or `SSRF_ALLOWED_CIDRS`; OIDC/OAuth2 and Turnstile keep their stricter identity boundary. Generated media is downloaded, validated, and stored by the backend: a private artifact URL inherits trust only when it has the same origin as the selected model endpoint; public cross-origin artifact URLs remain subject to the strict public-network policy, and private cross-origin artifact URLs are blocked. The global allowlist also remains available for deployment-level integrations that cannot be tied to an administrator-saved endpoint, such as selected GeoIP or extraction deployments. Link-local, multicast, unspecified, and known metadata targets always remain blocked. Invalid allowlist entries stop backend startup, and global allowlist changes require a restart.
-
-### OAuth callbacks for Web, App, and Desktop (multi-platform clients not yet released)
-
-Set `PUBLIC_API_BASE_URL` to the externally reachable API origin before enabling the provider auth bridge. For every OIDC/OAuth2 provider, register the server callback shown in the admin provider dialog:
-
-```text
-<PUBLIC_API_BASE_URL>/api/v1/auth/providers/<provider-slug>/callback
-```
-
-Web, App, and Desktop clients then reuse that instance callback automatically. The external provider authorization code and client secret remain on the self-hosted server; public clients receive only a short-lived, one-time DEEIX grant bound to their PKCE verifier. Keep the legacy Web callback shown by the admin dialog registered when account identity binding or older Web clients are still in use.
-
-## Feature Guides
-
-- [User Guide](https://deeix.com/docs/deeix-chat/new-chat)
-- [Admin Guide](https://deeix.com/docs/deeix-chat/admin-accounts)
-- [Advanced Guide](https://deeix.com/docs/deeix-chat/advanced-capabilities-passthrough-tools)
-
-## Security Notes
-
-- User passwords are hashed with bcrypt.
-- Production mode rejects unsafe default secrets, weak encryption keys, wildcard CORS, and non-HTTPS public URLs.
-- Refresh tokens and recovery-style secrets are stored as hashes.
-- Upstream API keys, SSO client secrets, MCP auth tokens, sensitive settings, and TOTP secrets are encrypted with AES-GCM using `DATA_ENCRYPTION_KEY`.
-- Access tokens are short-lived and held client-side in memory; refresh tokens are issued through HttpOnly cookies.
-- User-supplied model options are filtered before provider requests. System-generated fields such as model, messages, tools, system prompts, headers, and previous-response identifiers are not user-overridable.
-
-## Documentation
-
-- [Quick Start](https://deeix.com/docs/deeix-chat/quickstart)
-- [Configuration](https://deeix.com/docs/deeix-chat/configuration)
-- [User Guide](https://deeix.com/docs/deeix-chat/new-chat)
-- [Admin Guide](https://deeix.com/docs/deeix-chat/admin-accounts)
-- [Advanced Guide](https://deeix.com/docs/deeix-chat/advanced-capabilities-passthrough-tools)
 - Backend guide: [backend/README.md](./backend/README.md)
 - Backend standards: [backend/docs/README.md](./backend/docs/README.md)
 - Frontend guide: [frontend/README.md](./frontend/README.md)
 - API contract package: [packages/api-contract/README.md](./packages/api-contract/README.md)
-- Contributing: [CONTRIBUTING.md](./.github/CONTRIBUTING.md)
-- Security policy: [SECURITY.md](./.github/SECURITY.md)
-- Swagger UI (development only): `http://localhost:8080/swagger/index.html`
+- Contributing: [.github/CONTRIBUTING.md](./.github/CONTRIBUTING.md)
+- Security policy: [.github/SECURITY.md](./.github/SECURITY.md)
 
-## Acknowledgements
+### Acknowledgements
 
-DEEIX Chat is built on the open-source ecosystem. Thanks to all maintainers and communities in the AI tooling ecosystem.
+Ivano Chat is built on top of [DEEIX Chat](https://github.com/deeix-ai/deeix-chat) and the open-source ecosystem around it: [Next.js](https://nextjs.org), [Go](https://go.dev), and the wider AI tooling community.
 
-- [Next.js](https://nextjs.org)
-- [Go](https://go.dev)
-- [LINUX DO](https://linux.do)
+### License
 
-## Contact & Community
+Ivano Chat is a secondary development of DEEIX Chat and is distributed under the [Apache License 2.0](./LICENSE). Original copyright and attribution are preserved; see [NOTICE](./NOTICE).
 
-- Website: [deeix.com](https://deeix.com/)
-- Blog: [blog.cheny.me](https://blog.cheny.me/)
-- Email: [support@deeix.com](mailto:support@deeix.com)
-- Telegram: [t.me/deeix_chat](https://t.me/deeix_chat)
-- X: [@DEEIX_AI](https://x.com/DEEIX_AI)
+---
 
-## License
+<h2 id="简体中文">简体中文</h2>
 
-DEEIX Chat is licensed under the [Apache License 2.0](./LICENSE).
+### 项目简介
+
+Ivano Chat 是一个个人自部署的 AI 聊天客户端，基于开源项目 [DEEIX Chat](https://github.com/deeix-ai/deeix-chat)（v0.4.3，Apache License 2.0）**二次开发**而来。
+
+目标是在完整保留上游已有的账户体系——注册、登录、对话、历史记录、模型路由、文件、工具和计费——的基础上，新增一项能力：**游客模式**。
+
+在游客模式下，访客**无需注册**即可开始聊天。对话仅保存在该访客自己的浏览器中，不写入服务器的聊天历史。游客用量由站点的游客公共预算承担，并受单个访客的额度、频率限制和模型白名单约束。
+
+> Ivano Chat 基于 DEEIX Chat 二次开发，由 Ivano 独立维护。原项目采用 Apache License 2.0。
+
+### 开发状态
+
+**本项目处于开发早期。** 当前代码基线仍是上游 DEEIX Chat v0.4.3，**游客功能尚未实现**，运行中的程序行为与原版 DEEIX Chat 一致。
+
+| 阶段 | 内容 | 状态 |
+| --- | --- | --- |
+| 0 | 源码核对和基线 | 已完成基线核对，待验收 |
+| 1 | 品牌名称修改 | 未开始 |
+| 2 | 游客身份和计费接口设计 | 未开始 |
+| 3 | 游客推理和预算结算 | 未开始 |
+| 4 | 登录页入口和游客聊天页面 | 未开始 |
+| 5 | 浏览器缓存和身份切换 | 未开始 |
+| 6 | 后台游客设置 | 未开始 |
+| 7 | 整体回归和部署文档 | 未开始 |
+
+每个阶段完成后先经过用户验收，再开始下一阶段。
+
+### 规划中的功能：游客模式
+
+尚未实现，以下为设计目标。
+
+- **无需注册。** 访客在登录页点击"以游客身份快速聊天"，进入独立的 `/guest` 页面。
+- **对话只存在浏览器。** 消息保存在访客本机的 IndexedDB 中，最后更新后 24 小时过期。服务器**不**持久化对话正文（数据库、日志、审计、内容审核均不含正文）。
+- **由站点承担费用。** 游客调用记在一个专用的、不可登录的游客计费主体上，由站点公共预算承担。
+- **受限且有额度。** 单个访客的每日预算、生成次数、请求频率、并发数，以及全站每日预算和并发上限；限额在服务端强制执行，而非只隐藏前端按钮。
+- **模型白名单。** 游客只能使用管理员明确启用的文本模型。
+- **清缓存不能重置额度。** 预算和次数保存在服务器；清空对话、新建对话或刷新都不会恢复额度。
+
+第一版**不包含**：文件上传、知识库与个人记忆、MCP 与外部工具、图片/音频/视频生成、对话分享与跨设备同步、将游客记录导入账户。
+
+### 保留的原有能力
+
+| 领域 | 能力 |
+| --- | --- |
+| 对话 | 多模态聊天，支持流式、分支、重试、编辑、反馈、分享和富文本渲染。 |
+| 模型与路由 | 平台模型层，管理上游渠道、路由、优先级、权重、熔断和能力配置。 |
+| 协议适配 | 统一支持 OpenAI、Anthropic、Google/Gemini、xAI、OpenRouter 及兼容协议。 |
+| 文件与检索 | 上传、预览、提取、OCR、存储配额、分块、向量化和语义检索。 |
+| 工具生态 | MCP 服务与供应商原生工具，支持发现、启用、限额和调用追溯。 |
+| 计费 | 模型与工具定价、订阅、充值、余额、用量账本、Stripe Checkout 和 EPay。 |
+| 身份与安全 | 本地账户、会话、2FA/TOTP、可信设备、SSO/OIDC/OAuth、敏感数据加密。 |
+| 后台管理 | 用户、角色、上游、模型、路由、定价、用量日志、审计日志和系统事件。 |
+| 部署运维 | 单运行时静态托管、Docker、SQLite 或 PostgreSQL、内存缓存或 Redis、S3 兼容存储。 |
+
+### 架构与技术栈
+
+前端构建为静态资源，由 Go 服务托管；API、鉴权、路由、文件和计费运行在同一个后端运行时中。重量级的文档提取与 OCR 保持为可选服务。
+
+架构图见上方英文部分的 Mermaid 图，内容一致。
+
+| 层次 | 技术 |
+| --- | --- |
+| 前端 | Next.js 16、React 19、TypeScript、Tailwind CSS、Shadcn/UI |
+| 后端 | Go 1.26、Gin、Gorm、Swagger、OpenTelemetry、Zap |
+| 数据与缓存 | PostgreSQL、pgvector、SQLite、sqlite-vec、Redis、内存缓存 |
+| 文件与存储 | 本地文件系统、S3 兼容对象存储 |
+| 文件处理 | 内置提取器、Apache Tika、Docling、RapidOCR、Tesseract、云端 OCR 适配器 |
+| 部署 | Docker、Docker Compose |
+
+### 目录结构
+
+目录结构与上方英文部分一致，要点如下：
+
+- `backend/`：Go 接口与单运行时服务端。
+- `frontend/`：Next.js App Router 与静态导出。
+- `packages/api-contract/`：自动生成的 TypeScript API 契约包。
+- `docker/`：可选的文档提取与 OCR 服务。
+- `docs/`：项目文档与开发记录（本地保留，不提交到仓库）。
+- `config*.example.yaml`、`docker-compose*.yml`、`Dockerfile`：部署配置与镜像构建。
+
+### 快速开始
+
+前置条件：Node.js 20.9 以上（Docker 镜像使用 Node.js 24）、通过 Corepack 启用的 pnpm 10.17.0、Go 1.26.8，以及可选的 Docker 与 Compose v2。
+
+```bash
+# 本地开发（默认配置使用 PostgreSQL + Redis）
+cp config.example.yaml config.yaml       # 然后修改 DSN / Redis / 公共地址
+pnpm install
+cp frontend/.env.example frontend/.env.local
+pnpm dev
+```
+
+使用 SQLite 与内存缓存的轻量单机试用：
+
+```bash
+cp config.sqlite.example.yaml config.yaml
+docker compose -f docker-compose.sqlite.yml up -d
+```
+
+服务默认监听 `http://localhost:8080`（本地开发的 Next.js 前端在 `http://localhost:3000`）。探针：`/healthz`、`/readyz`、`/api/v1/version`。首次启动时若不存在超级管理员，后端会在日志中**一次性**打印初始 `admin` 密码；首次登录会强制修改账号与密码。
+
+### 文档
+
+- 后端指南：[backend/README.md](./backend/README.md)
+- 后端规范：[backend/docs/README.md](./backend/docs/README.md)
+- 前端指南：[frontend/README.md](./frontend/README.md)
+- API 契约包：[packages/api-contract/README.md](./packages/api-contract/README.md)
+- 贡献指南：[.github/CONTRIBUTING.md](./.github/CONTRIBUTING.md)
+- 安全策略：[.github/SECURITY.md](./.github/SECURITY.md)
+
+### 致谢
+
+Ivano Chat 建立在 [DEEIX Chat](https://github.com/deeix-ai/deeix-chat) 及其开源生态之上：[Next.js](https://nextjs.org)、[Go](https://go.dev)，以及更广泛的 AI 工具社区。
+
+### 许可证
+
+Ivano Chat 是 DEEIX Chat 的二次开发，采用 [Apache License 2.0](./LICENSE) 发布。原始版权与归属声明均已保留，详见 [NOTICE](./NOTICE)。

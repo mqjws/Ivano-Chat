@@ -8,7 +8,7 @@
   "navigation": "设置导航",
   "aboutPage": {
     "title": "关于",
-    "description": "DEEIX Chat 是面向多用户 AI 应用的模型接入与对话运营平台。它将模型目录、多上游路由、参数治理、文件与 RAG、MCP 工具、用量计费、身份安全、审计与运维配置整合到同一套控制面。",
+    "description": "Ivano Chat 是面向多用户 AI 应用的模型接入与对话运营平台。它将模型目录、多上游路由、参数治理、文件与 RAG、MCP 工具、用量计费、身份安全、审计与运维配置整合到同一套控制面。",
     "details": "产品信息",
     "product": "产品",
     "version": "版本",
@@ -20,7 +20,7 @@
     "social": "X",
     "blog": "博客",
     "contact": "联系与支持",
-    "copyright": "© 2026 DEEIX. DEEIX Chat.",
+    "copyright": "© 2026 Ivano。Ivano Chat，基于 Ivano Chat 二次开发。",
     "license": "代码遵循 Apache License 2.0 授权。"
   },
   "appearance": "外观",
@@ -240,7 +240,7 @@
         "description": {
           "bootstrapVerified": "首次设置邮箱需要验证新邮箱所有权。",
           "saveOnly": "保存后将更新邮箱。",
-          "change": "DEEIX Chat 会根据当前账号安全状态要求必要验证，通过后保存修改。"
+          "change": "Ivano Chat 会根据当前账号安全状态要求必要验证，通过后保存修改。"
         },
         "labels": {
           "newEmail": "新邮箱"
