@@ -400,7 +400,7 @@ var settingSpecs = []settingSpec{
 		Validate: intRange(1, 1000000)},
 	{Namespace: "guest", Key: "output_token_limit", ValueType: "int", Default: "2048", Description: "单次输出 Token 上限",
 		Validate: intRange(1, 1000000)},
-	{Namespace: "guest", Key: "budget_timezone", ValueType: "string", Default: "Europe/Berlin", Description: "每日预算重置时区（IANA 名称）",
+	{Namespace: "guest", Key: "budget_timezone", ValueType: "string", Default: "Asia/Shanghai", Description: "每日预算重置时区（IANA 名称，默认 Asia/Shanghai）",
 		Validate: validateTimezoneName},
 	{Namespace: "guest", Key: "billing_retention_days", ValueType: "int", Default: "30", Description: "游客计费明细保留天数，0 表示不自动清理",
 		Validate: intRange(0, 3650)},

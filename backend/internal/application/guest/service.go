@@ -36,8 +36,8 @@ const (
 	SessionTTL = 7 * 24 * time.Hour
 	// NanousdPerUSD 是站内账本的金额单位换算比例。
 	NanousdPerUSD int64 = 1_000_000_000
-	// DefaultBudgetTimezone 是实施文档约定的默认预算时区。
-	DefaultBudgetTimezone = "Europe/Berlin"
+	// DefaultBudgetTimezone 是默认预算时区（按站点所在时区配置，默认上海）。
+	DefaultBudgetTimezone = "Asia/Shanghai"
 	// BillingSubjectUsername 是专用游客计费主体的用户名；该账号不可登录。
 	BillingSubjectUsername = "guest-billing-subject"
 	// estimatedCostSafetyPercent 是预留安全系数：按估算费用的 125% 预留，

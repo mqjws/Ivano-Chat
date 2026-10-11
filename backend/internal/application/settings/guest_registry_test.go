@@ -18,7 +18,7 @@ func TestGuestSettingsRegisteredWithDocumentedDefaults(t *testing.T) {
 		"global_concurrency":           "2",
 		"input_token_limit":            "8000",
 		"output_token_limit":           "2048",
-		"budget_timezone":              "Europe/Berlin",
+		"budget_timezone":              "Asia/Shanghai",
 		"billing_retention_days":       "30",
 	}
 	for key, want := range expected {
