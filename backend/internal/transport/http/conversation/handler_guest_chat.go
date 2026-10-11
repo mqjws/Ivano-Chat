@@ -193,7 +193,7 @@ func (h *Handler) StreamGuestChatMessage(c *gin.Context) {
 	case billingErr != nil:
 		// 已发生上游用量但结算失败：标记待核对并保留预留，避免把未确认费用当成可用预算。
 		if err := h.guestService.Settle(settleCtx, reservation, settledNanousd, true); err != nil && clientConnected() {
-			_ = writeEvent(streamErrorPayload(err))
+			_ = writeEvent(guestStreamErrorPayload(err))
 		}
 	case streamErr != nil:
 		if result != nil {
@@ -207,7 +207,7 @@ func (h *Handler) StreamGuestChatMessage(c *gin.Context) {
 	}
 
 	if billingErr != nil && clientConnected() {
-		_ = writeEvent(streamErrorPayload(billingErr))
+		_ = writeEvent(guestStreamErrorPayload(billingErr))
 		return
 	}
 	if result != nil && result.IsModerationBlocked() {
@@ -218,7 +218,7 @@ func (h *Handler) StreamGuestChatMessage(c *gin.Context) {
 	}
 	if streamErr != nil {
 		if clientConnected() {
-			_ = writeEvent(streamErrorPayload(streamErr))
+			_ = writeEvent(guestStreamErrorPayload(streamErr))
 		}
 		return
 	}
@@ -226,6 +226,14 @@ func (h *Handler) StreamGuestChatMessage(c *gin.Context) {
 		"type": "completed",
 		"data": toSendMessageResponse(result),
 	})
+}
+
+// guestStreamErrorPayload 构造游客流式错误事件：与账户路径同一错误契约，
+// 但不回传上游调试信息（debug 内含请求 body）。
+func guestStreamErrorPayload(err error) map[string]any {
+	payload := streamErrorPayload(err)
+	delete(payload, "debug")
+	return payload
 }
 
 func (h *Handler) bindGuestChatRequest(c *gin.Context) (TemporaryChatMessageRequest, bool) {
