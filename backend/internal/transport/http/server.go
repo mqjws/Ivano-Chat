@@ -22,6 +22,7 @@ import (
 	channelhttp "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/transport/http/channel"
 	contentmoderationhttp "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/transport/http/contentmoderation"
 	conversationhttp "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/transport/http/conversation"
+	guesthttp "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/transport/http/guest"
 	knowledgebasehttp "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/transport/http/knowledgebase"
 	mcphttp "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/transport/http/mcp"
 	memoryhttp "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/transport/http/memory"
@@ -58,6 +59,7 @@ type Modules struct {
 	AuthService       middleware.SessionValidator
 	Channel           *channelhttp.Module
 	Conversation      *conversationhttp.Module
+	Guest             *guesthttp.Module
 	MCP               *mcphttp.Module
 	Memory            *memoryhttp.Module
 	Billing           *billinghttp.Module
@@ -123,7 +125,7 @@ func NewEngine(cfg *config.Runtime, log *zap.Logger, modules Modules, hc HealthC
 		c.Header("Pragma", "no-cache")
 		c.JSON(http.StatusOK, buildinfo.Snapshot())
 	})
-	if modules.Auth != nil || modules.Settings != nil || modules.Billing != nil || modules.Conversation != nil || modules.User != nil || modules.Channel != nil {
+	if modules.Auth != nil || modules.Settings != nil || modules.Billing != nil || modules.Conversation != nil || modules.User != nil || modules.Channel != nil || modules.Guest != nil {
 		publicAuth := api.Group("")
 		publicAuth.Use(middleware.PublicAuthRateLimit(limiter, cfg))
 		if modules.Auth != nil {
@@ -144,6 +146,16 @@ func NewEngine(cfg *config.Runtime, log *zap.Logger, modules Modules, hc HealthC
 		if modules.Billing != nil {
 			modules.Billing.RegisterPublicRoutes(publicAuth)
 		}
+		if modules.Guest != nil {
+			modules.Guest.RegisterPublicRoutes(publicAuth)
+		}
+	}
+
+	// 游客会话使用匿名 Cookie，与账户 Bearer Token 完全分离。
+	if modules.Guest != nil {
+		guestSession := api.Group("")
+		guestSession.Use(middleware.RateLimit(limiter, cfg))
+		modules.Guest.RegisterSessionRoutes(guestSession)
 	}
 
 	authRequired := api.Group("")

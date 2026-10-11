@@ -20,6 +20,7 @@ import (
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/conversation"
 	appembedding "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/embedding"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/extraction"
+	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/guest"
 	appknowledgebase "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/knowledgebase"
 	applogcleanup "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/logcleanup"
 	appmcp "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/mcp"
@@ -60,6 +61,7 @@ import (
 	channelrepo "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/persistence/postgres/channel"
 	contentmoderationrepo "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/persistence/postgres/contentmoderation"
 	conversationrepo "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/persistence/postgres/conversation"
+	guestrepo "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/persistence/postgres/guest"
 	knowledgebaserepo "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/persistence/postgres/knowledgebase"
 	logcleanuprepo "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/persistence/postgres/logcleanup"
 	mcprepo "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/infra/persistence/postgres/mcp"
@@ -81,6 +83,7 @@ import (
 	channelhttp "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/transport/http/channel"
 	contentmoderationhttp "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/transport/http/contentmoderation"
 	conversationhttp "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/transport/http/conversation"
+	guesthttp "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/transport/http/guest"
 	knowledgebasehttp "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/transport/http/knowledgebase"
 	mcphttp "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/transport/http/mcp"
 	memoryhttp "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/transport/http/memory"
@@ -426,6 +429,10 @@ func NewApp() (*App, error) {
 	announcementService := announcement.NewService(announcementRepo)
 	announcementHandler := announcementhttp.NewHandler(announcementService)
 	announcementModule := announcementhttp.NewModule(announcementHandler)
+	guestRepo := guestrepo.NewRepo(db)
+	guestService := guest.NewService(guestRepo, settingsService, channelService)
+	guestHandler := guesthttp.NewHandler(guestService, runtimeCfg)
+	guestModule := guesthttp.NewModule(guestHandler)
 	promptPresetRepo := promptpresetrepo.NewRepo(db)
 	promptPresetService := apppromptpreset.NewService(promptPresetRepo)
 	promptPresetService.SetAuditWriter(auditService)
@@ -461,6 +468,7 @@ func NewApp() (*App, error) {
 		AuthService:       authService,
 		Channel:           channelModule,
 		Conversation:      conversationModule,
+		Guest:             guestModule,
 		MCP:               mcpModule,
 		Memory:            memoryModule,
 		Billing:           billingModule,

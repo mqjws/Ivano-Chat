@@ -75,6 +75,59 @@ func (s *Service) ListActiveModels(ctx context.Context, userID uint) ([]ModelVie
 	return s.filterModelsByPermission(ctx, userID, views)
 }
 
+// ListGuestModels 返回游客白名单内的可用平台模型。
+//
+// allowedRefs 是管理员配置的平台模型名称（platformModelName）列表，返回值按白名单顺序排列，
+// 只包含当前可用模型。白名单为空、或白名单中的模型不存在时返回空列表而不是错误，
+// 具体的能力与参数校验在游客生成链路执行。
+func (s *Service) ListGuestModels(ctx context.Context, allowedRefs []string) ([]ModelView, error) {
+	order, allowed := normalizeGuestModelRefs(allowedRefs)
+	if len(order) == 0 {
+		return []ModelView{}, nil
+	}
+	views, err := s.listActiveModelViews(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return filterGuestModelViews(views, order, allowed), nil
+}
+
+func normalizeGuestModelRefs(allowedRefs []string) ([]string, map[string]struct{}) {
+	order := make([]string, 0, len(allowedRefs))
+	allowed := make(map[string]struct{}, len(allowedRefs))
+	for _, ref := range allowedRefs {
+		normalized := strings.ToLower(strings.TrimSpace(ref))
+		if normalized == "" {
+			continue
+		}
+		if _, exists := allowed[normalized]; exists {
+			continue
+		}
+		allowed[normalized] = struct{}{}
+		order = append(order, normalized)
+	}
+	return order, allowed
+}
+
+// filterGuestModelViews 按白名单顺序返回可用模型视图；不在白名单内的模型一律不可见。
+func filterGuestModelViews(views []ModelView, order []string, allowed map[string]struct{}) []ModelView {
+	byRef := make(map[string]ModelView, len(views))
+	for _, view := range views {
+		normalized := strings.ToLower(strings.TrimSpace(view.PlatformModelName))
+		if _, ok := allowed[normalized]; !ok {
+			continue
+		}
+		byRef[normalized] = view
+	}
+	results := make([]ModelView, 0, len(order))
+	for _, ref := range order {
+		if view, ok := byRef[ref]; ok {
+			results = append(results, view)
+		}
+	}
+	return results
+}
+
 func (s *Service) listActiveModelViews(ctx context.Context) ([]ModelView, error) {
 	now := time.Now()
 	mode := "unfiltered"
