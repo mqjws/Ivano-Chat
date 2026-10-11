@@ -10,6 +10,7 @@ import { useLoginPage } from "@/features/auth/hooks/use-auth-login-page";
 import { AppLogo } from "@/shared/components/app-logo";
 import { IdentityProviderIcon } from "@/shared/components/identity-provider-icon";
 import { CustomBrandAttribution } from "@/shared/components/powered-by-deeix";
+import { GuestEntryLink } from "@/features/guest/components/guest-entry-link";
 import { TurnstileWidget } from "@/features/auth/components/turnstile-widget";
 import { cn } from "@/lib/utils";
 
@@ -442,6 +443,7 @@ export function LoginPage({ nextPath }: LoginPageProps) {
                 </button>
               </div>
             ) : null}
+            <GuestEntryLink />
             </div>
           ) : null}
         </div>
