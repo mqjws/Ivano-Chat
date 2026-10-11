@@ -20,10 +20,10 @@ type LoginPageProps = {
 function LoginBrandMark() {
   return (
     <AppLogo
-      width={160}
-      height={64}
+      width={220}
+      height={88}
       priority
-      className="mx-auto h-16 w-auto"
+      className="mx-auto h-[5.5rem] w-auto"
     />
   );
 }
