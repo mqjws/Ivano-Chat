@@ -88,7 +88,7 @@ func DefaultSettings() Settings {
 		PerVisitorDailyBudgetNanousd: 100_000_000,
 		GlobalDailyBudgetNanousd:     1_000_000_000,
 		DailyGenerationLimit:         20,
-		RateLimitPerMinute:           2,
+		RateLimitPerMinute:           20,
 		PerVisitorConcurrency:        1,
 		GlobalConcurrency:            2,
 		InputTokenLimit:              8000,

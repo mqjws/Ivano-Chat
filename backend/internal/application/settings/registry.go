@@ -390,7 +390,7 @@ var settingSpecs = []settingSpec{
 		Validate: floatRange(0, 1000000)},
 	{Namespace: "guest", Key: "daily_generation_limit", ValueType: "int", Default: "20", Description: "单游客每日生成次数上限",
 		Validate: intRange(0, 100000)},
-	{Namespace: "guest", Key: "rate_limit_per_minute", ValueType: "int", Default: "2", Description: "单游客每分钟生成次数上限",
+	{Namespace: "guest", Key: "rate_limit_per_minute", ValueType: "int", Default: "20", Description: "单游客每分钟生成次数上限（默认 20，可在后台调整）",
 		Validate: intRange(1, 600)},
 	{Namespace: "guest", Key: "per_visitor_concurrency", ValueType: "int", Default: "1", Description: "单游客并发生成上限",
 		Validate: intRange(1, 16)},

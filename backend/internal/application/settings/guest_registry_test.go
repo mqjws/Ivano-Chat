@@ -13,7 +13,7 @@ func TestGuestSettingsRegisteredWithDocumentedDefaults(t *testing.T) {
 		"per_visitor_daily_budget_usd": "0.10",
 		"global_daily_budget_usd":      "1.00",
 		"daily_generation_limit":       "20",
-		"rate_limit_per_minute":        "2",
+		"rate_limit_per_minute":        "20",
 		"per_visitor_concurrency":      "1",
 		"global_concurrency":           "2",
 		"input_token_limit":            "8000",
