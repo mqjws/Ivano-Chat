@@ -8,6 +8,12 @@ func (m *Module) RegisterPublicRoutes(api *gin.RouterGroup) {
 	api.POST("/guest/session", m.Handler.CreateSession)
 }
 
+// RegisterAdminRoutes 注册管理端游客面板路由（由管理员中间件保护）。
+func (m *Module) RegisterAdminRoutes(adminGroup *gin.RouterGroup) {
+	adminGroup.GET("/guest/overview", m.Handler.AdminOverview)
+	adminGroup.GET("/guest/requests", m.Handler.AdminRequests)
+}
+
 // SessionMiddleware 返回游客会话中间件，供服务端组装共享的游客凭证路由组。
 func (m *Module) SessionMiddleware() gin.HandlerFunc {
 	return SessionMiddleware(m.Handler.service)

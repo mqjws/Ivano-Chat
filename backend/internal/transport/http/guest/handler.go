@@ -23,6 +23,8 @@ type Service interface {
 	ResolveSession(ctx context.Context, credential string) (*domainguest.Session, error)
 	PublicConfig(ctx context.Context) (*appguest.ConfigView, error)
 	Usage(ctx context.Context, session *domainguest.Session) (*appguest.UsageSnapshot, error)
+	AdminOverviewForAdmin(ctx context.Context, topLimit int) (*appguest.AdminOverview, error)
+	AdminRequests(ctx context.Context, filter domainguest.RequestFilter) ([]domainguest.RequestRecord, int64, error)
 }
 
 // Handler 提供游客公开接口与凭证保护接口。

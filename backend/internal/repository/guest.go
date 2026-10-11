@@ -36,4 +36,9 @@ type GuestRepository interface {
 	CountActiveGuestRequests(ctx context.Context, sessionID uint) (int, error)
 	// CountActiveGuestRequestsGlobal 统计全站仍在进行中的游客请求数，用于全站并发限制。
 	CountActiveGuestRequestsGlobal(ctx context.Context) (int, error)
+
+	// ListGuestDailyUsage 按预算日返回各游客的用量（按已结算金额倒序），用于后台统计。
+	ListGuestDailyUsage(ctx context.Context, budgetDate string, limit int) ([]domainguest.UsageRow, error)
+	// ListGuestRequests 分页返回匿名账单记录（不含正文），并返回总数。
+	ListGuestRequests(ctx context.Context, filter domainguest.RequestFilter) ([]domainguest.RequestRecord, int64, error)
 }

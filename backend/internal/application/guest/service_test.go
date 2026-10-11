@@ -122,6 +122,14 @@ func (r *repoStub) CountActiveGuestRequestsGlobal(_ context.Context) (int, error
 	return r.activeGlobal, nil
 }
 
+func (r *repoStub) ListGuestDailyUsage(_ context.Context, _ string, _ int) ([]domainguest.UsageRow, error) {
+	return nil, nil
+}
+
+func (r *repoStub) ListGuestRequests(_ context.Context, _ domainguest.RequestFilter) ([]domainguest.RequestRecord, int64, error) {
+	return nil, 0, nil
+}
+
 func (r *repoStub) CreateGuestSession(_ context.Context, item *domainguest.Session) error {
 	r.nextID++
 	item.ID = r.nextID

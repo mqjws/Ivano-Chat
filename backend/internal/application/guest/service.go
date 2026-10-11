@@ -249,6 +249,51 @@ func (s *Service) EstimateRequestNanousd(ctx context.Context, input EstimateInpu
 	return estimate * estimatedCostSafetyPercent / 100, nil
 }
 
+// AdminOverview 是后台游客面板需要的当日概览。
+type AdminOverview struct {
+	Enabled        bool
+	BudgetTimezone string
+	BudgetDate     string
+	ResetAt        time.Time
+	Settings       Settings
+	GlobalUsage    UsageView
+	Guests         []domainguest.UsageRow
+}
+
+// AdminOverview 返回后台概览：配置、全站当日用量与按游客排名的用量。
+func (s *Service) AdminOverviewForAdmin(ctx context.Context, topLimit int) (*AdminOverview, error) {
+	settings, err := s.settingsSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	budgetDate, resetAt, err := BudgetWindow(s.now().UTC(), settings.BudgetTimezone)
+	if err != nil {
+		return nil, err
+	}
+	global, err := s.repo.GetGuestGlobalDailyUsage(ctx, budgetDate)
+	if err != nil {
+		return nil, err
+	}
+	guests, err := s.repo.ListGuestDailyUsage(ctx, budgetDate, topLimit)
+	if err != nil {
+		return nil, err
+	}
+	return &AdminOverview{
+		Enabled:        settings.Enabled,
+		BudgetTimezone: settings.BudgetTimezone,
+		BudgetDate:     budgetDate,
+		ResetAt:        resetAt,
+		Settings:       settings,
+		GlobalUsage:    buildUsageView(settings.GlobalDailyBudgetNanousd, global),
+		Guests:         guests,
+	}, nil
+}
+
+// AdminRequests 返回匿名账单分页结果（不含正文）。
+func (s *Service) AdminRequests(ctx context.Context, filter domainguest.RequestFilter) ([]domainguest.RequestRecord, int64, error) {
+	return s.repo.ListGuestRequests(ctx, filter)
+}
+
 // SessionResult 描述一次游客会话创建或恢复的结果。
 type SessionResult struct {
 	Session *domainguest.Session

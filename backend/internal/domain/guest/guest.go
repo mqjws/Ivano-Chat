@@ -111,12 +111,33 @@ type ReservationLimits struct {
 	DailyGenerationLimit   int
 }
 
+// UsageRow 是管理端看到的“某个游客在某预算日”的用量汇总。
+type UsageRow struct {
+	SessionID       uint
+	GuestPublicID   string
+	BudgetDate      string
+	SettledNanousd  int64
+	ReservedNanousd int64
+	RequestCount    int
+}
+
+// RequestFilter 是匿名账单列表的查询条件；不包含任何正文检索条件。
+type RequestFilter struct {
+	SessionID  uint
+	Status     string
+	BudgetDate string
+	Limit      int
+	Offset     int
+}
+
 // RequestRecord 是一次游客计费请求的服务端记录。InputDigest 是请求内容摘要，
 // 只用于幂等比较，不能从中还原正文。
 type RequestRecord struct {
-	ID              uint
-	RequestID       string
-	SessionID       uint
+	ID        uint
+	RequestID string
+	SessionID uint
+	// GuestPublicID 是匿名游客的公开 ID，仅用于后台账单区分，不含任何个人信息。
+	GuestPublicID   string
 	BudgetDate      string
 	Status          string
 	ModelRef        string
