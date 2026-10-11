@@ -29,6 +29,7 @@ type GuestMessage = {
   failed?: boolean;
   costNanousd?: number;
   costUSD?: string;
+  errorText?: string;
 };
 
 function resolveErrorMessage(error: unknown, t: (key: string) => string): string {
@@ -168,10 +169,13 @@ export function GuestChatPage() {
               usageCost = input + output;
             },
             onError: (event) => {
-              setNotice(event.message || t("requestFailed"));
+              const reason = event.message || t("requestFailed");
+              setNotice(reason);
               setMessages((current) =>
                 current.map((item) =>
-                  item.id === assistantID ? { ...item, streaming: false, failed: true } : item,
+                  item.id === assistantID
+                    ? { ...item, streaming: false, failed: true, errorText: reason }
+                    : item,
                 ),
               );
             },
@@ -197,10 +201,13 @@ export function GuestChatPage() {
             ),
           );
         } else {
-          setNotice(resolveErrorMessage(error, t));
+          const reason = resolveErrorMessage(error, t);
+          setNotice(reason);
           setMessages((current) =>
             current.map((item) =>
-              item.id === assistantID ? { ...item, streaming: false, failed: true } : item,
+              item.id === assistantID
+                ? { ...item, streaming: false, failed: true, errorText: reason }
+                : item,
             ),
           );
         }
@@ -217,6 +224,13 @@ export function GuestChatPage() {
     if (!content || sending) {
       return;
     }
+    // 与后端一致的粗略口径：中日韩约 0.7 token/字。后端仍是权威校验，
+    // 这里提前拦截是为了避免"请求被拒绝但用户只看到一个空气泡"。
+    const tokenLimit = config?.limits.inputTokenLimit ?? 0;
+    if (tokenLimit > 0 && Math.ceil(content.length * 0.7) > tokenLimit) {
+      setNotice(t("inputTooLarge", { limit: tokenLimit }));
+      return;
+    }
     const userMessage: GuestMessage = { id: createSecureUUID(), role: "user", content };
     const assistantMessage: GuestMessage = {
       id: createSecureUUID(),
@@ -228,7 +242,7 @@ export function GuestChatPage() {
     setMessages([...messages, userMessage, assistantMessage]);
     setDraft("");
     await runTurn(history, assistantMessage.id, content);
-  }, [draft, messages, runTurn, sending]);
+  }, [config?.limits.inputTokenLimit, draft, messages, runTurn, sending, t]);
 
   const handleStop = React.useCallback(() => {
     abortRef.current?.abort();
@@ -351,6 +365,8 @@ export function GuestChatPage() {
               )
             ) : message.streaming ? (
               t("thinking")
+            ) : message.errorText ? (
+              <span className="text-destructive">{message.errorText}</span>
             ) : (
               ""
             )}

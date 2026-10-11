@@ -24,7 +24,7 @@
   "rateLimited": "Sending too fast, please slow down.",
   "concurrencyLimited": "Too many guests right now, please retry shortly.",
   "modelNotAllowed": "This model is not open to guests.",
-  "inputTooLarge": "The input is too long. Please shorten it.",
+  "inputTooLarge": "Input is too long (over about {limit} tokens). Please shorten it and retry.",
   "lastCost": "This call was charged to the guest budget.",
   "remainingBudget": "Remaining {amount}",
   "usedBudget": "Used {amount}",

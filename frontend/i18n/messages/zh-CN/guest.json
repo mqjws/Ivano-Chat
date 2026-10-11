@@ -24,7 +24,7 @@
   "rateLimited": "发送过于频繁，请稍后再试。",
   "concurrencyLimited": "当前游客较多，请稍后再试。",
   "modelNotAllowed": "该模型未对游客开放。",
-  "inputTooLarge": "输入内容过长，请精简后重试。",
+  "inputTooLarge": "输入内容过长（约超过 {limit} tokens），请精简后重试。",
   "lastCost": "本次调用已计入游客公共预算。",
   "remainingBudget": "剩余额度 {amount}",
   "usedBudget": "已用 {amount}",
