@@ -32,21 +32,21 @@ export function NavControl() {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <div className="relative flex h-20 w-full items-center rounded-md text-sm">
+        <div className="relative flex h-16 w-full items-center rounded-md text-sm">
           <SidebarTransitionContent asChild>
             <span
               className={cn(
                 "flex min-w-0 items-center overflow-hidden whitespace-nowrap pl-2 transition-[max-width,opacity,transform,padding-left] ease-linear group-data-[resizing=true]:max-w-0 group-data-[resizing=true]:-translate-x-2 group-data-[resizing=true]:pl-0",
                 isVisuallyCollapsed
                   ? "max-w-0 -translate-x-2 pl-0 opacity-0 duration-100"
-                  : "max-w-[320px] translate-x-0 pl-2 opacity-100 duration-150",
+                  : "max-w-[240px] translate-x-0 pl-2 opacity-100 duration-150",
               )}
             >
               <AppLogo
-                width={200}
-                height={80}
+                width={150}
+                height={60}
                 priority
-                className="h-16 w-auto object-contain"
+                className="h-12 w-auto object-contain"
               />
             </span>
           </SidebarTransitionContent>
