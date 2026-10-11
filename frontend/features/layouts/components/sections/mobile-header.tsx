@@ -33,10 +33,10 @@ export function MobileHeader({
 
       <div className="flex min-w-0 justify-center">
         <AppLogo
-          width={104}
-          height={42}
+          width={125}
+          height={50}
           priority
-          className="h-8 w-auto object-contain"
+          className="h-10 w-auto object-contain"
         />
       </div>
 
