@@ -111,6 +111,15 @@ type ReservationLimits struct {
 	DailyGenerationLimit   int
 }
 
+// CleanupResult 是一次保留期清理的结果统计。
+type CleanupResult struct {
+	RetentionDays   int
+	CutoffDate      string
+	DeletedRequests int64
+	DeletedUsage    int64
+	DeletedSessions int64
+}
+
 // UsageRow 是管理端看到的“某个游客在某预算日”的用量汇总。
 type UsageRow struct {
 	SessionID       uint

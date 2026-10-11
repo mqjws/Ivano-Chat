@@ -130,6 +130,10 @@ func (r *repoStub) ListGuestRequests(_ context.Context, _ domainguest.RequestFil
 	return nil, 0, nil
 }
 
+func (r *repoStub) DeleteGuestRecordsBefore(_ context.Context, _ string, _ time.Time) (domainguest.CleanupResult, error) {
+	return domainguest.CleanupResult{}, nil
+}
+
 func (r *repoStub) CreateGuestSession(_ context.Context, item *domainguest.Session) error {
 	r.nextID++
 	item.ID = r.nextID

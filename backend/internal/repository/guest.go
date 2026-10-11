@@ -41,4 +41,7 @@ type GuestRepository interface {
 	ListGuestDailyUsage(ctx context.Context, budgetDate string, limit int) ([]domainguest.UsageRow, error)
 	// ListGuestRequests 分页返回匿名账单记录（不含正文），并返回总数。
 	ListGuestRequests(ctx context.Context, filter domainguest.RequestFilter) ([]domainguest.RequestRecord, int64, error)
+	// DeleteGuestRecordsBefore 清理超过保留期的游客记录。
+	// 只删除「终态请求」与早于保留窗口的用量行；进行中 / 待核对请求与当日用量永不删除。
+	DeleteGuestRecordsBefore(ctx context.Context, cutoffDate string, cutoffTime time.Time) (domainguest.CleanupResult, error)
 }

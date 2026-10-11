@@ -18,6 +18,8 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
+
 	// 精简镜像可能缺少系统时区库，内嵌 tzdata 保证预算时区可用。
 	_ "time/tzdata"
 
@@ -46,6 +48,8 @@ const (
 
 	credentialBytes  = 32
 	budgetDateLayout = "2006-01-02"
+	// cleanupInterval 是保留期清理的执行间隔；启动时先执行一次。
+	cleanupInterval = 6 * time.Hour
 )
 
 // 游客动态配置键名，与 settings 注册表的 guest 命名空间一一对应。
@@ -131,6 +135,7 @@ type Service struct {
 
 	subjectMu sync.Mutex
 	subjectID uint
+	logger    *zap.Logger
 }
 
 // NewService 创建游客应用服务。
@@ -141,6 +146,74 @@ func NewService(repo repository.GuestRepository, settings settingsReader, models
 		models:   models,
 		now:      time.Now,
 		entropy:  rand.Reader,
+	}
+}
+
+// SetLogger 注入日志器，用于记录保留期清理结果。
+func (s *Service) SetLogger(logger *zap.Logger) {
+	s.logger = logger
+}
+
+// CleanupGuestRecords 按 guest:billing_retention_days 清理游客账单与用量记录。
+// 保留期为 0 表示不自动清理；只删除终态请求、早于保留窗口的用量行与早已过期的会话。
+func (s *Service) CleanupGuestRecords(ctx context.Context) (domainguest.CleanupResult, error) {
+	settings, err := s.settingsSnapshot(ctx)
+	if err != nil {
+		return domainguest.CleanupResult{}, err
+	}
+	if settings.BillingRetentionDays <= 0 || s.repo == nil {
+		return domainguest.CleanupResult{}, nil
+	}
+	now := s.now().UTC()
+	cutoffTime := now.AddDate(0, 0, -settings.BillingRetentionDays)
+	cutoffDate, _, err := BudgetWindow(cutoffTime, settings.BudgetTimezone)
+	if err != nil {
+		return domainguest.CleanupResult{}, err
+	}
+	result, err := s.repo.DeleteGuestRecordsBefore(ctx, cutoffDate, cutoffTime)
+	if err != nil {
+		return domainguest.CleanupResult{}, err
+	}
+	result.RetentionDays = settings.BillingRetentionDays
+	return result, nil
+}
+
+// StartBackgroundWorkers 启动保留期清理：启动后立即执行一次，之后每 cleanupInterval 执行一次。
+func (s *Service) StartBackgroundWorkers(ctx context.Context) {
+	if s.repo == nil {
+		return
+	}
+	go func() {
+		s.runRetentionCleanup(ctx)
+		ticker := time.NewTicker(cleanupInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				s.runRetentionCleanup(ctx)
+			}
+		}
+	}()
+}
+
+func (s *Service) runRetentionCleanup(ctx context.Context) {
+	result, err := s.CleanupGuestRecords(ctx)
+	if s.logger == nil {
+		return
+	}
+	if err != nil {
+		s.logger.Warn("guest_retention_cleanup_failed", zap.Error(err))
+		return
+	}
+	if result.DeletedRequests > 0 || result.DeletedUsage > 0 || result.DeletedSessions > 0 {
+		s.logger.Info("guest_retention_cleanup_done",
+			zap.Int("retention_days", result.RetentionDays),
+			zap.String("cutoff_date", result.CutoffDate),
+			zap.Int64("requests", result.DeletedRequests),
+			zap.Int64("usage_rows", result.DeletedUsage),
+			zap.Int64("sessions", result.DeletedSessions))
 	}
 }
 

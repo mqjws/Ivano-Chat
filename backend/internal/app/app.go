@@ -432,6 +432,7 @@ func NewApp() (*App, error) {
 	guestRepo := guestrepo.NewRepo(db)
 	guestService := guest.NewService(guestRepo, settingsService, channelService)
 	guestService.SetBillingDependencies(userRepo, billingService)
+	guestService.SetLogger(log)
 	guestHandler := guesthttp.NewHandler(guestService, runtimeCfg)
 	guestModule := guesthttp.NewModule(guestHandler)
 	conversationHandler.SetGuestService(guestService)
@@ -505,6 +506,7 @@ func NewApp() (*App, error) {
 	}
 	embeddingService.StartBackgroundWorkers(backgroundCtx)
 	conversationService.StartBackgroundWorkers(backgroundCtx)
+	guestService.StartBackgroundWorkers(backgroundCtx)
 	contentModerationService.StartBackgroundWorkers(backgroundCtx)
 	channelService.StartModelIconAssetCleanup(backgroundCtx)
 
