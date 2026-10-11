@@ -349,6 +349,15 @@ branding:
 	}
 }
 
+func TestResolvedBrandTitleFallsBackToBuiltInDefault(t *testing.T) {
+	if got := (Config{}).ResolvedBrandTitle(); got != DefaultBrandTitle {
+		t.Fatalf("expected built-in default brand title %q, got %q", DefaultBrandTitle, got)
+	}
+	if got := (Config{BrandTitle: " Example Chat "}).ResolvedBrandTitle(); got != "Example Chat" {
+		t.Fatalf("expected trimmed configured brand title, got %q", got)
+	}
+}
+
 func TestValidateAllowsOnlyDevAndProdEnvironment(t *testing.T) {
 	tests := []struct {
 		name    string

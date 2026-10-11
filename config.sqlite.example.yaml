@@ -1,5 +1,5 @@
 app:
-  name: DEEIX Chat
+  name: Ivano Chat
   # Required. Use prod and replace security values before public deployment.
   env: dev
 

@@ -14,11 +14,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// DefaultBrandTitle 是未显式配置 branding.title 时使用的内置产品名称。
+// 它同时被注册邮件、二次验证等无法读取前端品牌接口的服务端文案复用。
+const DefaultBrandTitle = "Ivano Chat"
+
 const (
-	defaultAppName                      = "DEEIX Chat"
-	defaultBrandTitle                   = "DEEIX Chat"
-	defaultBrandShortName               = "DEEIX"
-	defaultBrandDescription             = "DEEIX Chat is a multi-model AI conversation system."
+	defaultAppName                      = "Ivano Chat"
+	defaultBrandTitle                   = DefaultBrandTitle
+	defaultBrandShortName               = "Ivano"
+	defaultBrandDescription             = "Ivano 的个人 AI 聊天客户端"
 	defaultBrandFaviconURL              = "/favicon.ico"
 	defaultBrandPWAIcon192URL           = "/pwa/icon-192.png"
 	defaultBrandPWAIcon512URL           = "/pwa/icon-512.png"
@@ -1005,6 +1009,11 @@ func normalizeEnv(value string) string {
 // IsProduction 判断配置是否使用生产环境语义。
 func (c Config) IsProduction() bool {
 	return normalizeEnv(c.Env) == "prod"
+}
+
+// ResolvedBrandTitle 返回非空产品名称；未配置 branding.title 时回退到内置默认值。
+func (c Config) ResolvedBrandTitle() string {
+	return valueOrDefault(c.BrandTitle, defaultBrandTitle)
 }
 
 func normalizeDatabaseDriver(value string) string {

@@ -54,7 +54,8 @@
     "social": "X",
     "blog": "博客",
     "contact": "联系与支持",
-    "copyright": "© 2026 Ivano。Ivano Chat，基于 Ivano Chat 二次开发。",
+    "copyright": "© 2026 Ivano。Ivano Chat 基于 DEEIX Chat 二次开发。",
+    "attribution": "Ivano Chat 基于 DEEIX Chat 二次开发，由 Ivano 独立维护。原项目采用 Apache License 2.0。",
     "license": "代码遵循 Apache License 2.0 授权。"
   },
   "accessDeniedTitle": "服务加载失败",

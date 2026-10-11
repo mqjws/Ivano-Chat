@@ -20,7 +20,8 @@
     "social": "X",
     "blog": "Blog",
     "contact": "Contact & support",
-    "copyright": "© 2026 Ivano. Ivano Chat, based on Ivano Chat.",
+    "copyright": "© 2026 Ivano. Ivano Chat is a secondary development based on DEEIX Chat.",
+    "attribution": "Ivano Chat is a secondary development based on DEEIX Chat, independently maintained by Ivano. The original project is licensed under the Apache License 2.0.",
     "license": "Code licensed under the Apache License 2.0."
   },
   "appearance": "Appearance",

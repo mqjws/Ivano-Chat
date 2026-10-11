@@ -25,6 +25,7 @@ type AboutLabels = {
   contact: string;
   copyright: string;
   license: string;
+  attribution: string;
 };
 
 type AboutSettingsContentProps = {
@@ -135,6 +136,10 @@ export function AboutSettingsContent({
 
           <p className="max-w-[760px] text-sm leading-6 text-muted-foreground">
             {description}
+          </p>
+
+          <p className="max-w-[760px] rounded-md bg-muted/50 px-3 py-2 text-xs leading-5 text-muted-foreground">
+            {labels.attribution}
           </p>
         </div>
       </SettingsSection>
