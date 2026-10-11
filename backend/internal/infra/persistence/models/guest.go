@@ -58,6 +58,7 @@ type GuestRequest struct {
 	Status          string     `gorm:"size:32;not null;index:idx_guest_requests_status;comment:pending/running/settled/failed/needs_review/rejected"`
 	ModelRef        string     `gorm:"size:128;not null;default:'';comment:平台模型名称"`
 	InputDigest     string     `gorm:"size:64;not null;default:'';comment:请求输入摘要，仅用于幂等比较"`
+	BillingRefNo    string     `gorm:"size:128;not null;default:'';index:idx_guest_requests_billing_ref;comment:计费主体账本幂等编号，用于把账单追溯到游客"`
 	ReservedNanousd int64      `gorm:"not null;default:0;comment:预留金额(nanousd)"`
 	SettledNanousd  int64      `gorm:"not null;default:0;comment:结算金额(nanousd)"`
 	SettledAt       *time.Time `gorm:"comment:结算时间"`

@@ -288,6 +288,182 @@ type consumedUsage interface {
 	ConsumedNanousd() int64
 }
 
+// RequestInput 是一次游客生成请求在预留阶段需要的上下文。
+type RequestInput struct {
+	Session         *domainguest.Session
+	RequestID       string
+	ModelRef        string
+	InputDigest     string
+	EstimateNanousd int64
+}
+
+// Reservation 表示一次已经占用的游客预算与次数。
+type Reservation struct {
+	SessionID       uint
+	RequestID       string
+	BudgetDate      string
+	BillingRefNo    string
+	EstimateNanousd int64
+	// Existing 为真表示命中幂等：本次没有新增预留，Record 是已存在的请求记录。
+	Existing bool
+	Record   *domainguest.RequestRecord
+}
+
+// Reserve 执行游客生成前的策略校验并原子占用次数与预算。
+//
+// 校验顺序：开关 → 模型白名单 → 频率 → 并发 → 幂等 → 预算与次数（在数据库事务内）。
+// 命中幂等时不新增预留：调用方需要根据 Record.Status 决定返回既有结果还是拒绝重复执行。
+func (s *Service) Reserve(ctx context.Context, input RequestInput) (*Reservation, error) {
+	if input.Session == nil || input.Session.ID == 0 {
+		return nil, ErrSessionRequired
+	}
+	requestID := strings.TrimSpace(input.RequestID)
+	if requestID == "" {
+		return nil, ErrRequestConflict
+	}
+	settings, err := s.settingsSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !settings.Enabled {
+		return nil, ErrDisabled
+	}
+	if !modelAllowed(settings.ModelWhitelist, input.ModelRef) {
+		return nil, ErrModelNotAllowed
+	}
+	now := s.now().UTC()
+	budgetDate, _, err := BudgetWindow(now, settings.BudgetTimezone)
+	if err != nil {
+		return nil, err
+	}
+
+	if existing, err := s.repo.GetGuestRequest(ctx, input.Session.ID, requestID); err == nil && existing != nil {
+		if strings.TrimSpace(existing.InputDigest) != strings.TrimSpace(input.InputDigest) {
+			return nil, ErrRequestConflict
+		}
+		return &Reservation{
+			SessionID:       input.Session.ID,
+			RequestID:       requestID,
+			BudgetDate:      existing.BudgetDate,
+			BillingRefNo:    existing.BillingRefNo,
+			EstimateNanousd: existing.ReservedNanousd,
+			Existing:        true,
+			Record:          existing,
+		}, nil
+	} else if err != nil && !errors.Is(err, repository.ErrNotFound) {
+		return nil, err
+	}
+
+	if settings.RateLimitPerMinute > 0 {
+		recent, err := s.repo.CountGuestRequestsSince(ctx, input.Session.ID, now.Add(-time.Minute))
+		if err != nil {
+			return nil, err
+		}
+		if recent >= settings.RateLimitPerMinute {
+			return nil, ErrRateLimited
+		}
+	}
+	active, err := s.repo.CountActiveGuestRequests(ctx, input.Session.ID)
+	if err != nil {
+		return nil, err
+	}
+	if settings.PerVisitorConcurrency > 0 && active >= settings.PerVisitorConcurrency {
+		return nil, ErrConcurrencyLimited
+	}
+	activeGlobal, err := s.repo.CountActiveGuestRequestsGlobal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if settings.GlobalConcurrency > 0 && activeGlobal >= settings.GlobalConcurrency {
+		return nil, ErrConcurrencyLimited
+	}
+
+	record, err := s.repo.ReserveGuestRequest(ctx, domainguest.ReservationRequest{
+		SessionID:       input.Session.ID,
+		RequestID:       requestID,
+		BudgetDate:      budgetDate,
+		ModelRef:        strings.TrimSpace(input.ModelRef),
+		InputDigest:     strings.TrimSpace(input.InputDigest),
+		BillingRefNo:    BillingRefNo(input.Session.PublicID, requestID),
+		EstimateNanousd: input.EstimateNanousd,
+		Now:             now,
+	}, domainguest.ReservationLimits{
+		PerVisitorDailyNanousd: settings.PerVisitorDailyBudgetNanousd,
+		GlobalDailyNanousd:     settings.GlobalDailyBudgetNanousd,
+		DailyGenerationLimit:   settings.DailyGenerationLimit,
+	})
+	if err != nil {
+		return nil, translateReservationError(err)
+	}
+	return &Reservation{
+		SessionID:       record.SessionID,
+		RequestID:       record.RequestID,
+		BudgetDate:      record.BudgetDate,
+		BillingRefNo:    record.BillingRefNo,
+		EstimateNanousd: record.ReservedNanousd,
+		Record:          record,
+	}, nil
+}
+
+// Settle 用实际用量结算预留；needsReview 为真时保留待核对状态。
+func (s *Service) Settle(ctx context.Context, reservation *Reservation, billedNanousd int64, needsReview bool) error {
+	if reservation == nil || reservation.Existing {
+		return nil
+	}
+	status := domainguest.RequestStatusSettled
+	if needsReview {
+		status = domainguest.RequestStatusNeedsReview
+	}
+	return s.repo.SettleGuestRequest(ctx, reservation.SessionID, reservation.RequestID, billedNanousd, status, s.now().UTC())
+}
+
+// Release 释放预留；releaseCount 为真表示本次没有发生上游调用，连次数一起归还。
+func (s *Service) Release(ctx context.Context, reservation *Reservation, releaseCount bool, rejected bool) error {
+	if reservation == nil || reservation.Existing {
+		return nil
+	}
+	status := domainguest.RequestStatusFailed
+	if rejected {
+		status = domainguest.RequestStatusRejected
+	}
+	return s.repo.ReleaseGuestRequest(ctx, reservation.SessionID, reservation.RequestID, releaseCount, status, s.now().UTC())
+}
+
+// BillingRefNo 生成计费主体账本的幂等编号，用于把账单追溯到具体游客请求。
+// 只包含摘要，不包含正文；同一游客请求始终得到同一编号。
+func BillingRefNo(guestPublicID string, requestID string) string {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(guestPublicID) + ":" + strings.TrimSpace(requestID)))
+	return "guest-" + hex.EncodeToString(sum[:16])
+}
+
+func modelAllowed(whitelist []string, modelRef string) bool {
+	candidate := strings.ToLower(strings.TrimSpace(modelRef))
+	if candidate == "" {
+		return false
+	}
+	for _, item := range whitelist {
+		if strings.ToLower(strings.TrimSpace(item)) == candidate {
+			return true
+		}
+	}
+	return false
+}
+
+func translateReservationError(err error) error {
+	switch {
+	case errors.Is(err, domainguest.ErrDailyCountExceeded):
+		return ErrDailyCountExceeded
+	case errors.Is(err, domainguest.ErrDailyBudgetExceeded):
+		return ErrDailyBudgetExceeded
+	case errors.Is(err, domainguest.ErrGlobalBudgetExceeded):
+		return ErrGlobalBudgetExceeded
+	case errors.Is(err, repository.ErrDuplicate):
+		return ErrRequestConflict
+	default:
+		return err
+	}
+}
+
 func buildUsageView(budgetNanousd int64, usage consumedUsage) UsageView {
 	consumed := usage.ConsumedNanousd()
 	if consumed < 0 {

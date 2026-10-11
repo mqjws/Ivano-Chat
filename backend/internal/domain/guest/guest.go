@@ -6,7 +6,10 @@
 //   - 额度按配置时区的日历日统计，限额判定使用“已结算 + 进行中预留”。
 package guest
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 // 游客会话状态。
 const (
@@ -79,6 +82,35 @@ func (u GlobalDailyUsage) ConsumedNanousd() int64 {
 	return u.SettledNanousd + u.ReservedNanousd
 }
 
+// 预算与次数策略错误：由仓储在事务内判定，避免并发请求穿透站内预算。
+var (
+	// ErrDailyBudgetExceeded 表示单游客当日预算不足。
+	ErrDailyBudgetExceeded = errors.New("guest daily budget exceeded")
+	// ErrGlobalBudgetExceeded 表示全站游客当日预算不足。
+	ErrGlobalBudgetExceeded = errors.New("guest global daily budget exceeded")
+	// ErrDailyCountExceeded 表示单游客当日生成次数已用尽。
+	ErrDailyCountExceeded = errors.New("guest daily generation limit exceeded")
+)
+
+// ReservationRequest 是一次游客生成请求的预留输入。
+type ReservationRequest struct {
+	SessionID       uint
+	RequestID       string
+	BudgetDate      string
+	ModelRef        string
+	InputDigest     string
+	BillingRefNo    string
+	EstimateNanousd int64
+	Now             time.Time
+}
+
+// ReservationLimits 是预留在同一事务内必须校验的上限。
+type ReservationLimits struct {
+	PerVisitorDailyNanousd int64
+	GlobalDailyNanousd     int64
+	DailyGenerationLimit   int
+}
+
 // RequestRecord 是一次游客计费请求的服务端记录。InputDigest 是请求内容摘要，
 // 只用于幂等比较，不能从中还原正文。
 type RequestRecord struct {
@@ -89,6 +121,7 @@ type RequestRecord struct {
 	Status          string
 	ModelRef        string
 	InputDigest     string
+	BillingRefNo    string
 	ReservedNanousd int64
 	SettledNanousd  int64
 	CreatedAt       time.Time

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -18,8 +19,20 @@ type repoStub struct {
 	byID     map[uint]*domainguest.Session
 	daily    map[uint]*domainguest.DailyUsage
 	global   map[string]*domainguest.GlobalDailyUsage
+	requests map[string]*domainguest.RequestRecord
 	nextID   uint
 	created  int
+
+	// 以下字段用于在服务层测试中构造仓储侧行为。
+	reserveErr    error
+	reserveCalls  int
+	lastLimits    domainguest.ReservationLimits
+	settleCalls   []string
+	releaseCalls  []string
+	recentCount   int
+	activeCount   int
+	activeGlobal  int
+	lastReserveIn domainguest.ReservationRequest
 }
 
 func newRepoStub() *repoStub {
@@ -28,7 +41,85 @@ func newRepoStub() *repoStub {
 		byID:     map[uint]*domainguest.Session{},
 		daily:    map[uint]*domainguest.DailyUsage{},
 		global:   map[string]*domainguest.GlobalDailyUsage{},
+		requests: map[string]*domainguest.RequestRecord{},
 	}
+}
+
+func requestKey(sessionID uint, requestID string) string {
+	return strconv.FormatUint(uint64(sessionID), 10) + ":" + requestID
+}
+
+func (r *repoStub) ReserveGuestRequest(_ context.Context, input domainguest.ReservationRequest, limits domainguest.ReservationLimits) (*domainguest.RequestRecord, error) {
+	r.reserveCalls++
+	r.lastLimits = limits
+	r.lastReserveIn = input
+	if r.reserveErr != nil {
+		return nil, r.reserveErr
+	}
+	key := requestKey(input.SessionID, input.RequestID)
+	if _, exists := r.requests[key]; exists {
+		return nil, repository.ErrDuplicate
+	}
+	r.nextID++
+	record := &domainguest.RequestRecord{
+		ID:              r.nextID,
+		RequestID:       input.RequestID,
+		SessionID:       input.SessionID,
+		BudgetDate:      input.BudgetDate,
+		Status:          domainguest.RequestStatusPending,
+		ModelRef:        input.ModelRef,
+		InputDigest:     input.InputDigest,
+		BillingRefNo:    input.BillingRefNo,
+		ReservedNanousd: input.EstimateNanousd,
+		CreatedAt:       input.Now,
+		UpdatedAt:       input.Now,
+	}
+	r.requests[key] = record
+	copied := *record
+	return &copied, nil
+}
+
+func (r *repoStub) GetGuestRequest(_ context.Context, sessionID uint, requestID string) (*domainguest.RequestRecord, error) {
+	record, ok := r.requests[requestKey(sessionID, requestID)]
+	if !ok {
+		return nil, repository.ErrNotFound
+	}
+	copied := *record
+	return &copied, nil
+}
+
+func (r *repoStub) SettleGuestRequest(_ context.Context, sessionID uint, requestID string, settledNanousd int64, status string, now time.Time) error {
+	record, ok := r.requests[requestKey(sessionID, requestID)]
+	if !ok {
+		return repository.ErrNotFound
+	}
+	record.Status = status
+	record.SettledNanousd = settledNanousd
+	record.SettledAt = &now
+	r.settleCalls = append(r.settleCalls, requestID)
+	return nil
+}
+
+func (r *repoStub) ReleaseGuestRequest(_ context.Context, sessionID uint, requestID string, _ bool, status string, _ time.Time) error {
+	record, ok := r.requests[requestKey(sessionID, requestID)]
+	if !ok {
+		return repository.ErrNotFound
+	}
+	record.Status = status
+	r.releaseCalls = append(r.releaseCalls, requestID)
+	return nil
+}
+
+func (r *repoStub) CountGuestRequestsSince(_ context.Context, _ uint, _ time.Time) (int, error) {
+	return r.recentCount, nil
+}
+
+func (r *repoStub) CountActiveGuestRequests(_ context.Context, _ uint) (int, error) {
+	return r.activeCount, nil
+}
+
+func (r *repoStub) CountActiveGuestRequestsGlobal(_ context.Context) (int, error) {
+	return r.activeGlobal, nil
 }
 
 func (r *repoStub) CreateGuestSession(_ context.Context, item *domainguest.Session) error {
@@ -453,5 +544,168 @@ func TestNanousdHelpers(t *testing.T) {
 		if got := FormatUSD(value); got != want {
 			t.Fatalf("FormatUSD(%d) = %q, want %q", value, got, want)
 		}
+	}
+}
+
+func TestReserveEnforcesSwitchWhitelistRateAndConcurrency(t *testing.T) {
+	session := &domainguest.Session{ID: 1, PublicID: "guest-1", Status: domainguest.SessionStatusActive}
+	now := time.Date(2026, time.October, 11, 12, 0, 0, 0, time.UTC)
+
+	disabled := newTestService(newRepoStub(), settingsStub{values: map[string]string{SettingEnabled: "false"}}, &modelStub{}, now)
+	if _, err := disabled.Reserve(context.Background(), RequestInput{Session: session, RequestID: "r1", ModelRef: "gpt-4o"}); !errors.Is(err, ErrDisabled) {
+		t.Fatalf("expected ErrDisabled, got %v", err)
+	}
+
+	noWhitelist := newTestService(newRepoStub(), enabledSettings(nil), &modelStub{}, now)
+	if _, err := noWhitelist.Reserve(context.Background(), RequestInput{Session: session, RequestID: "r1", ModelRef: "gpt-4o"}); !errors.Is(err, ErrModelNotAllowed) {
+		t.Fatalf("expected ErrModelNotAllowed, got %v", err)
+	}
+
+	repo := newRepoStub()
+	service := newTestService(repo, enabledSettings(map[string]string{
+		SettingModelWhitelist:     "gpt-4o, claude-sonnet",
+		SettingRateLimitPerMinute: "2",
+	}), &modelStub{}, now)
+	repo.recentCount = 2
+	if _, err := service.Reserve(context.Background(), RequestInput{Session: session, RequestID: "r1", ModelRef: "GPT-4O"}); !errors.Is(err, ErrRateLimited) {
+		t.Fatalf("expected ErrRateLimited, got %v", err)
+	}
+
+	repo = newRepoStub()
+	repo.recentCount = 0
+	repo.activeCount = 1
+	service = newTestService(repo, enabledSettings(map[string]string{SettingModelWhitelist: "gpt-4o"}), &modelStub{}, now)
+	if _, err := service.Reserve(context.Background(), RequestInput{Session: session, RequestID: "r1", ModelRef: "gpt-4o"}); !errors.Is(err, ErrConcurrencyLimited) {
+		t.Fatalf("expected per-visitor concurrency error, got %v", err)
+	}
+
+	repo = newRepoStub()
+	repo.activeGlobal = 2
+	service = newTestService(repo, enabledSettings(map[string]string{SettingModelWhitelist: "gpt-4o"}), &modelStub{}, now)
+	if _, err := service.Reserve(context.Background(), RequestInput{Session: session, RequestID: "r1", ModelRef: "gpt-4o"}); !errors.Is(err, ErrConcurrencyLimited) {
+		t.Fatalf("expected global concurrency error, got %v", err)
+	}
+}
+
+func TestReserveUsesDailyLimitsAndBillingRef(t *testing.T) {
+	session := &domainguest.Session{ID: 7, PublicID: "guest-public-7", Status: domainguest.SessionStatusActive}
+	now := time.Date(2026, time.October, 11, 22, 30, 0, 0, time.UTC)
+	repo := newRepoStub()
+	service := newTestService(repo, enabledSettings(map[string]string{
+		SettingModelWhitelist:        "gpt-4o",
+		SettingPerVisitorDailyBudget: "0.10",
+		SettingGlobalDailyBudget:     "1.00",
+		SettingDailyGenerationLimit:  "20",
+	}), &modelStub{}, now)
+
+	reservation, err := service.Reserve(context.Background(), RequestInput{
+		Session: session, RequestID: "run-1", ModelRef: "gpt-4o", InputDigest: "digest-1", EstimateNanousd: 100,
+	})
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	if reservation.Existing || reservation.Record == nil || reservation.Record.Status != domainguest.RequestStatusPending {
+		t.Fatalf("unexpected reservation: %#v", reservation)
+	}
+	if reservation.BudgetDate != "2026-10-12" {
+		t.Fatalf("budget date must use the configured timezone, got %q", reservation.BudgetDate)
+	}
+	if reservation.BillingRefNo == "" || !strings.HasPrefix(reservation.BillingRefNo, "guest-") {
+		t.Fatalf("unexpected billing ref: %q", reservation.BillingRefNo)
+	}
+	if repo.lastLimits.PerVisitorDailyNanousd != 100_000_000 || repo.lastLimits.GlobalDailyNanousd != 1_000_000_000 || repo.lastLimits.DailyGenerationLimit != 20 {
+		t.Fatalf("unexpected limits passed to repository: %#v", repo.lastLimits)
+	}
+	if repo.lastReserveIn.BillingRefNo != reservation.BillingRefNo || repo.lastReserveIn.BudgetDate != reservation.BudgetDate {
+		t.Fatalf("unexpected repository input: %#v", repo.lastReserveIn)
+	}
+
+	// 相同请求 ID 与摘要：命中幂等，不再新增预留。
+	again, err := service.Reserve(context.Background(), RequestInput{
+		Session: session, RequestID: "run-1", ModelRef: "gpt-4o", InputDigest: "digest-1", EstimateNanousd: 100,
+	})
+	if err != nil {
+		t.Fatalf("idempotent reserve error = %v", err)
+	}
+	if !again.Existing || repo.reserveCalls != 1 {
+		t.Fatalf("expected idempotent reuse, got %#v calls=%d", again, repo.reserveCalls)
+	}
+
+	// 相同请求 ID 不同摘要：拒绝。
+	if _, err := service.Reserve(context.Background(), RequestInput{
+		Session: session, RequestID: "run-1", ModelRef: "gpt-4o", InputDigest: "digest-2", EstimateNanousd: 100,
+	}); !errors.Is(err, ErrRequestConflict) {
+		t.Fatalf("expected ErrRequestConflict, got %v", err)
+	}
+}
+
+func TestReserveTranslatesRepositoryPolicyErrors(t *testing.T) {
+	session := &domainguest.Session{ID: 3, PublicID: "guest-3", Status: domainguest.SessionStatusActive}
+	now := time.Date(2026, time.October, 11, 12, 0, 0, 0, time.UTC)
+	cases := []struct {
+		name     string
+		repoErr  error
+		expected error
+	}{
+		{name: "daily budget", repoErr: domainguest.ErrDailyBudgetExceeded, expected: ErrDailyBudgetExceeded},
+		{name: "global budget", repoErr: domainguest.ErrGlobalBudgetExceeded, expected: ErrGlobalBudgetExceeded},
+		{name: "daily count", repoErr: domainguest.ErrDailyCountExceeded, expected: ErrDailyCountExceeded},
+		{name: "duplicate", repoErr: repository.ErrDuplicate, expected: ErrRequestConflict},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := newRepoStub()
+			repo.reserveErr = tc.repoErr
+			service := newTestService(repo, enabledSettings(map[string]string{SettingModelWhitelist: "gpt-4o"}), &modelStub{}, now)
+			_, err := service.Reserve(context.Background(), RequestInput{Session: session, RequestID: "r1", ModelRef: "gpt-4o", InputDigest: "d"})
+			if !errors.Is(err, tc.expected) {
+				t.Fatalf("expected %v, got %v", tc.expected, err)
+			}
+		})
+	}
+}
+
+func TestSettleAndReleaseForwardToRepository(t *testing.T) {
+	session := &domainguest.Session{ID: 5, PublicID: "guest-5", Status: domainguest.SessionStatusActive}
+	now := time.Date(2026, time.October, 11, 12, 0, 0, 0, time.UTC)
+	repo := newRepoStub()
+	service := newTestService(repo, enabledSettings(map[string]string{SettingModelWhitelist: "gpt-4o"}), &modelStub{}, now)
+
+	reservation, err := service.Reserve(context.Background(), RequestInput{Session: session, RequestID: "run-9", ModelRef: "gpt-4o", InputDigest: "d", EstimateNanousd: 100})
+	if err != nil {
+		t.Fatalf("Reserve() error = %v", err)
+	}
+	if err := service.Settle(context.Background(), reservation, 42, false); err != nil {
+		t.Fatalf("Settle() error = %v", err)
+	}
+	record, err := repo.GetGuestRequest(context.Background(), 5, "run-9")
+	if err != nil {
+		t.Fatalf("GetGuestRequest() error = %v", err)
+	}
+	if record.Status != domainguest.RequestStatusSettled || record.SettledNanousd != 42 {
+		t.Fatalf("unexpected settled record: %#v", record)
+	}
+
+	second, err := service.Reserve(context.Background(), RequestInput{Session: session, RequestID: "run-10", ModelRef: "gpt-4o", InputDigest: "d2", EstimateNanousd: 100})
+	if err != nil {
+		t.Fatalf("Reserve() second error = %v", err)
+	}
+	if err := service.Release(context.Background(), second, true, true); err != nil {
+		t.Fatalf("Release() error = %v", err)
+	}
+	record, err = repo.GetGuestRequest(context.Background(), 5, "run-10")
+	if err != nil {
+		t.Fatalf("GetGuestRequest() second error = %v", err)
+	}
+	if record.Status != domainguest.RequestStatusRejected {
+		t.Fatalf("unexpected released record: %#v", record)
+	}
+
+	// 已有幂等记录时结算/释放是空操作，不能重复改动账本。
+	if err := service.Settle(context.Background(), &Reservation{Existing: true}, 999, false); err != nil {
+		t.Fatalf("Settle() on existing reservation must be a no-op, got %v", err)
+	}
+	if len(repo.settleCalls) != 1 || len(repo.releaseCalls) != 1 {
+		t.Fatalf("unexpected calls: settle=%v release=%v", repo.settleCalls, repo.releaseCalls)
 	}
 }
