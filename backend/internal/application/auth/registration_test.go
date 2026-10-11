@@ -16,16 +16,17 @@ import (
 )
 
 func TestBuildVerificationEmailMessageEncodesChineseSubject(t *testing.T) {
-	message := buildVerificationEmailMessage("DEEIX Chat <no-reply@example.com>", "user@example.com", "123456", verificationEmailTemplate{
-		Subject:      "DEEIX Chat 验证码",
+	message := buildVerificationEmailMessage("Ivano Chat <no-reply@example.com>", "user@example.com", "123456", verificationEmailTemplate{
+		Brand:        "Ivano Chat",
+		Subject:      "Ivano Chat 验证码",
 		Title:        "完成邮箱注册",
 		SecurityNote: "如果不是您本人操作，请忽略这封邮件。",
-	}, "https://deeix.example/logo.svg")
+	}, "https://ivano.example/logo.png")
 
 	if !strings.Contains(message, "Subject: =?utf-8?") {
 		t.Fatalf("expected encoded utf-8 subject, got:\n%s", message)
 	}
-	if strings.Contains(message, "Subject: DEEIX Chat 验证码") {
+	if strings.Contains(message, "Subject: Ivano Chat 验证码") {
 		t.Fatalf("expected subject to be MIME encoded, got:\n%s", message)
 	}
 	if !strings.Contains(message, "Content-Type: multipart/alternative; boundary=") {
@@ -43,13 +44,17 @@ func TestBuildVerificationEmailMessageEncodesChineseSubject(t *testing.T) {
 	if !strings.Contains(message, "<!doctype html>") || !strings.Contains(message, ">123456<") {
 		t.Fatalf("expected html verification body, got:\n%s", message)
 	}
-	if !strings.Contains(message, `src="https://deeix.example/logo.svg"`) {
+	if !strings.Contains(message, `src="https://ivano.example/logo.png"`) {
 		t.Fatalf("expected html logo, got:\n%s", message)
+	}
+	if !strings.Contains(message, "Ivano Chat\n\n完成邮箱注册") || !strings.Contains(message, `alt="Ivano Chat"`) {
+		t.Fatalf("expected configured brand name in text and html body, got:\n%s", message)
 	}
 }
 
 func TestBuildVerificationEmailMessageEscapesDynamicHTMLContent(t *testing.T) {
 	template := verificationEmailTemplate{
+		Brand:        `<b>Ivano</b>`,
 		Subject:      "验证码",
 		Title:        `<script>alert("title")</script>`,
 		SecurityNote: `<img src=x onerror=alert("note")>`,
@@ -74,6 +79,21 @@ func TestBuildVerificationEmailMessageEscapesDynamicHTMLContent(t *testing.T) {
 	}
 	if !strings.Contains(message, `a=&#34;quoted&#34;`) {
 		t.Fatalf("expected escaped logo URL attribute, got:\n%s", message)
+	}
+	if !strings.Contains(message, `alt="&lt;b&gt;Ivano&lt;/b&gt;"`) {
+		t.Fatalf("expected escaped brand name in logo alt, got:\n%s", message)
+	}
+}
+
+func TestBrandAssetURLKeepsAbsoluteAndResolvesSitePath(t *testing.T) {
+	if got := brandAssetURL("https://chat.example", "/logo.png"); got != "https://chat.example/logo.png" {
+		t.Fatalf("expected site-relative brand logo to resolve, got %q", got)
+	}
+	if got := brandAssetURL("https://chat.example", "https://cdn.example/logo.svg"); got != "https://cdn.example/logo.svg" {
+		t.Fatalf("expected absolute brand logo to stay untouched, got %q", got)
+	}
+	if got := brandAssetURL("https://chat.example", "  "); got != "" {
+		t.Fatalf("expected blank brand logo to stay empty, got %q", got)
 	}
 }
 
