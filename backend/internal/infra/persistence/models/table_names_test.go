@@ -59,6 +59,10 @@ func TestTableNamesUseRestructuredDomains(t *testing.T) {
 		AnnouncementUserState{},
 		SystemSetting{},
 		UserSetting{},
+		GuestSession{},
+		GuestDailyUsage{},
+		GuestGlobalDailyUsage{},
+		GuestRequest{},
 	}
 
 	deprecated := map[string]struct{}{

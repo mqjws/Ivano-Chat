@@ -76,6 +76,11 @@ func Models() []any {
 		&model.PermissionGroupModelAccess{},
 		&model.PermissionGroupModelRule{},
 		&model.PermissionGroupUserAccess{},
+		// 游客身份与预算账本（实施文档阶段 2）
+		&model.GuestSession{},
+		&model.GuestDailyUsage{},
+		&model.GuestGlobalDailyUsage{},
+		&model.GuestRequest{},
 	}
 }
 

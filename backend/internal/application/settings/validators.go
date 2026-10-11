@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	domainbilling "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/domain/billing"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/shared/security"
@@ -153,6 +154,33 @@ func validateLoginDefaultNextPath(value string, key string) error {
 		return settingRule("local_path", "")
 	}
 	return maxLength(120)(value, key)
+}
+
+// validateGuestModelWhitelist 校验游客模型白名单：英文逗号分隔的平台模型名称。
+// 允许空串（表示不开放任何模型）；单个名称不超过 128 字符，条目上限 200。
+func validateGuestModelWhitelist(value string, _ string) error {
+	items := splitList(value)
+	if len(items) > 200 {
+		return settingRule("too_many_items", "200")
+	}
+	for _, item := range items {
+		if len([]rune(item)) > 128 {
+			return settingRule("max_length", "128")
+		}
+	}
+	return nil
+}
+
+// validateTimezoneName 校验 IANA 时区名称，例如 Europe/Berlin。
+func validateTimezoneName(value string, _ string) error {
+	name := strings.TrimSpace(value)
+	if name == "" {
+		return settingRule("required", "")
+	}
+	if _, err := time.LoadLocation(name); err != nil {
+		return settingRule("invalid_timezone", "")
+	}
+	return nil
 }
 
 func validateEmailDomainList(value string, key string) error {
