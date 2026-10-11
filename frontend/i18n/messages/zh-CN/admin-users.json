@@ -15,7 +15,8 @@
     "chatFiles": "文件与检索",
     "knowledgeBases": "知识库",
     "about": "关于",
-    "contentModeration": "内容审核"
+    "contentModeration": "内容审核",
+    "guest": "游客设置"
   },
   "aboutPage": {
     "title": "关于",

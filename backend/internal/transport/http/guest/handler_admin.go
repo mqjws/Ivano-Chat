@@ -29,6 +29,7 @@ type AdminGuestOverviewResponse struct {
 	BudgetTimezone string               `json:"budgetTimezone"`
 	BudgetDate     string               `json:"budgetDate"`
 	ResetAt        string               `json:"resetAt"`
+	ModelWhitelist []string             `json:"modelWhitelist"`
 	Limits         LimitsResponse       `json:"limits"`
 	Global         UsageResponse        `json:"global"`
 	Guests         []AdminGuestUsageRow `json:"guests"`
@@ -129,6 +130,7 @@ func toAdminOverviewResponse(overview *appguest.AdminOverview) AdminGuestOvervie
 		BudgetTimezone: overview.BudgetTimezone,
 		BudgetDate:     overview.BudgetDate,
 		ResetAt:        overview.ResetAt.UTC().Format(time.RFC3339),
+		ModelWhitelist: append([]string(nil), overview.Settings.ModelWhitelist...),
 		Limits:         toLimitsResponse(overview.Settings),
 		Global:         toUsageResponse(overview.GlobalUsage),
 		Guests:         guests,

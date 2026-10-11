@@ -15,7 +15,8 @@
     "chatFiles": "Files & retrieval",
     "knowledgeBases": "Knowledge bases",
     "about": "About",
-    "contentModeration": "Content moderation"
+    "contentModeration": "Content moderation",
+    "guest": "Guest settings"
   },
   "aboutPage": {
     "title": "About",

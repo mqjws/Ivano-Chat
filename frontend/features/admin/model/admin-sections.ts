@@ -13,6 +13,7 @@ export const ADMIN_SECTIONS = [
   { id: "conversation-settings", label: "Conversation", href: "/conversation" },
   { id: "chat-files", label: "Files & retrieval", href: "/chat-files" },
   { id: "knowledge-bases", label: "Knowledge bases", href: "/knowledge-bases" },
+  { id: "guest", label: "Guest", href: "/guest" },
   { id: "about", label: "About", href: "/about" },
 ] as const;
 
