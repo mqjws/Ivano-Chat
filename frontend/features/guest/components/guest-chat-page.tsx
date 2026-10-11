@@ -17,6 +17,7 @@ import {
   type GuestMeDTO,
   type GuestModelDTO,
 } from "@/shared/api/guest";
+import { StreamdownRender } from "@/shared/components/markdown/streamdown-render";
 import { createSecureUUID } from "@/shared/lib/secure-id";
 import { cn } from "@/lib/utils";
 
@@ -336,13 +337,23 @@ export function GuestChatPage() {
           <div
             key={message.id}
             className={cn(
-              "max-w-[85%] whitespace-pre-wrap break-words rounded-md px-3 py-2 text-sm leading-6",
+              "max-w-[85%] break-words rounded-md px-3 py-2 text-sm leading-6",
               message.role === "user"
-                ? "ml-auto bg-foreground text-background"
+                ? "ml-auto whitespace-pre-wrap bg-foreground text-background"
                 : "mr-auto bg-muted text-foreground",
             )}
           >
-            {message.content || (message.streaming ? t("thinking") : "")}
+            {message.content ? (
+              message.role === "assistant" ? (
+                <StreamdownRender content={message.content} streaming={Boolean(message.streaming)} />
+              ) : (
+                message.content
+              )
+            ) : message.streaming ? (
+              t("thinking")
+            ) : (
+              ""
+            )}
           </div>
         ))}
       </section>
