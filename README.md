@@ -38,13 +38,13 @@ With guest mode, a visitor can start chatting **without registering**. The conve
 
 ### Development status
 
-**This project is in early development.** The code base is the DEEIX Chat v0.4.3 baseline with the Ivano Chat branding applied: the guest feature is **not implemented yet**, and every other behavior is still the upstream behavior.
+**This project is in early development.** The code base is the DEEIX Chat v0.4.3 baseline with the Ivano Chat branding applied: guest identity, public guest configuration and the restricted model list exist, while guest **chat generation** is not implemented yet. Every other behavior is still the upstream behavior.
 
 | Stage | Scope | Status |
 | --- | --- | --- |
 | 0 | Source review and baseline | Accepted on 2026-10-11 |
 | 1 | Branding name change | Implemented, pending acceptance |
-| 2 | Guest identity and billing API design | Not started |
+| 2 | Guest identity and billing API design | Implemented, pending acceptance |
 | 3 | Guest inference and budget settlement | Not started |
 | 4 | Login-page entry and guest chat page | Not started |
 | 5 | Browser cache and identity switching | Not started |
@@ -209,13 +209,13 @@ Ivano Chat 是一个个人自部署的 AI 聊天客户端，基于开源项目 [
 
 ### 开发状态
 
-**本项目处于开发早期。** 代码基线为上游 DEEIX Chat v0.4.3 并已应用 Ivano Chat 品牌，**游客功能尚未实现**，其余行为仍与原版一致。
+**本项目处于开发早期。** 代码基线为上游 DEEIX Chat v0.4.3 并已应用 Ivano Chat 品牌；游客身份、公开配置与受限模型列表已实现，**游客聊天生成尚未实现**，其余行为仍与原版一致。
 
 | 阶段 | 内容 | 状态 |
 | --- | --- | --- |
 | 0 | 源码核对和基线 | 已于 2026-10-11 验收通过 |
 | 1 | 品牌名称修改 | 已完成开发，待验收 |
-| 2 | 游客身份和计费接口设计 | 未开始 |
+| 2 | 游客身份和计费接口设计 | 已完成开发，待验收 |
 | 3 | 游客推理和预算结算 | 未开始 |
 | 4 | 登录页入口和游客聊天页面 | 未开始 |
 | 5 | 浏览器缓存和身份切换 | 未开始 |
