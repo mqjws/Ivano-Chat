@@ -447,6 +447,10 @@ export function GuestChatPage() {
         </div>
       </header>
 
+      <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-5 text-amber-700 dark:text-amber-300">
+        {t("pageLimitation")}
+      </p>
+
       {perVisitor ? (
         <section className="grid grid-cols-2 gap-2 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground sm:grid-cols-4">
           <span>{t("remainingBudget", { amount: `$${perVisitor.availableUSD}` })}</span>

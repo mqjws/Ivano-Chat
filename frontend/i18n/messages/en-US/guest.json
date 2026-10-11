@@ -33,5 +33,7 @@
   "lastCostWithAmount": "This call cost {amount}",
   "storageHint": "The conversation is stored in this browser (IndexedDB), expires 24 hours after the last update, and is never synced to an account.",
   "cacheUnavailable": "This browser cannot persist the temporary conversation. Refreshing or closing the page will lose it.",
-  "interrupted": "The previous generation was interrupted by a refresh or page close. It was not resent automatically."
+  "interrupted": "The previous generation was interrupted by a refresh or page close. It was not resent automatically.",
+  "entryLimitation": "Guest chat is for trying the conversation only: not all features are available (attachments, knowledge bases, skills, tools and image/video generation are disabled), and the interface and comfort are below a registered account.",
+  "pageLimitation": "Guest mode is a trial: features are limited (no attachments, knowledge bases, skills, tools, or image/video generation) and the interface and comfort are below a registered account. Sign up or sign in for the full experience."
 }

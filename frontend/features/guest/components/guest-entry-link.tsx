@@ -38,6 +38,7 @@ export function GuestEntryLink() {
         {t("entry")}
       </Link>
       <p className="mt-2 text-xs leading-5 text-muted-foreground">{t("entryHint")}</p>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground/80">{t("entryLimitation")}</p>
     </div>
   );
 }
