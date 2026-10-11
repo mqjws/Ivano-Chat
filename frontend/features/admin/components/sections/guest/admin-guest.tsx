@@ -171,7 +171,7 @@ export function AdminGuestPanel() {
           </p>
 
           <SettingsFieldList>
-            <SettingsFieldRow title={t("fields.enabled")} description={t("fields.enabledHint")}>
+            <SettingsFieldItem index={0}><SettingsFieldRow title={t("fields.enabled")} description={t("fields.enabledHint")}>
               <SettingsFieldInset>
                 <input
                   type="checkbox"
@@ -180,8 +180,8 @@ export function AdminGuestPanel() {
                   className="size-4"
                 />
               </SettingsFieldInset>
-            </SettingsFieldRow>
-            <SettingsFieldRow title={t("fields.modelWhitelist")} description={t("fields.modelWhitelistHint")}>
+            </SettingsFieldRow></SettingsFieldItem>
+            <SettingsFieldItem index={1}><SettingsFieldRow title={t("fields.modelWhitelist")} description={t("fields.modelWhitelistHint")}>
               <SettingsFieldInset>
                 <WhitelistPicker
                   models={platformModels}
@@ -192,57 +192,57 @@ export function AdminGuestPanel() {
                   onToggle={(name, checked) => update("modelWhitelist", toggleWhitelist(form.modelWhitelist, name, checked, platformModels))}
                 />
               </SettingsFieldInset>
-            </SettingsFieldRow>
-            <SettingsFieldRow title={t("fields.perVisitorDailyBudget")}>
+            </SettingsFieldRow></SettingsFieldItem>
+            <SettingsFieldItem index={2}><SettingsFieldRow title={t("fields.perVisitorDailyBudget")}>
               <SettingsFieldInset>
                 <Input value={form.perVisitorDailyBudgetUSD} onChange={(event) => update("perVisitorDailyBudgetUSD", event.target.value)} />
               </SettingsFieldInset>
-            </SettingsFieldRow>
-            <SettingsFieldRow title={t("fields.globalDailyBudget")}>
+            </SettingsFieldRow></SettingsFieldItem>
+            <SettingsFieldItem index={3}><SettingsFieldRow title={t("fields.globalDailyBudget")}>
               <SettingsFieldInset>
                 <Input value={form.globalDailyBudgetUSD} onChange={(event) => update("globalDailyBudgetUSD", event.target.value)} />
               </SettingsFieldInset>
-            </SettingsFieldRow>
-            <SettingsFieldRow title={t("fields.dailyGenerationLimit")}>
+            </SettingsFieldRow></SettingsFieldItem>
+            <SettingsFieldItem index={4}><SettingsFieldRow title={t("fields.dailyGenerationLimit")}>
               <SettingsFieldInset>
                 <Input value={form.dailyGenerationLimit} onChange={(event) => update("dailyGenerationLimit", event.target.value)} />
               </SettingsFieldInset>
-            </SettingsFieldRow>
-            <SettingsFieldRow title={t("fields.rateLimitPerMinute")} description={t("fields.rateLimitHint")}>
+            </SettingsFieldRow></SettingsFieldItem>
+            <SettingsFieldItem index={5}><SettingsFieldRow title={t("fields.rateLimitPerMinute")} description={t("fields.rateLimitHint")}>
               <SettingsFieldInset>
                 <Input value={form.rateLimitPerMinute} onChange={(event) => update("rateLimitPerMinute", event.target.value)} />
               </SettingsFieldInset>
-            </SettingsFieldRow>
-            <SettingsFieldRow title={t("fields.perVisitorConcurrency")}>
+            </SettingsFieldRow></SettingsFieldItem>
+            <SettingsFieldItem index={6}><SettingsFieldRow title={t("fields.perVisitorConcurrency")}>
               <SettingsFieldInset>
                 <Input value={form.perVisitorConcurrency} onChange={(event) => update("perVisitorConcurrency", event.target.value)} />
               </SettingsFieldInset>
-            </SettingsFieldRow>
-            <SettingsFieldRow title={t("fields.globalConcurrency")}>
+            </SettingsFieldRow></SettingsFieldItem>
+            <SettingsFieldItem index={7}><SettingsFieldRow title={t("fields.globalConcurrency")}>
               <SettingsFieldInset>
                 <Input value={form.globalConcurrency} onChange={(event) => update("globalConcurrency", event.target.value)} />
               </SettingsFieldInset>
-            </SettingsFieldRow>
-            <SettingsFieldRow title={t("fields.inputTokenLimit")}>
+            </SettingsFieldRow></SettingsFieldItem>
+            <SettingsFieldItem index={8}><SettingsFieldRow title={t("fields.inputTokenLimit")}>
               <SettingsFieldInset>
                 <Input value={form.inputTokenLimit} onChange={(event) => update("inputTokenLimit", event.target.value)} />
               </SettingsFieldInset>
-            </SettingsFieldRow>
-            <SettingsFieldRow title={t("fields.outputTokenLimit")}>
+            </SettingsFieldRow></SettingsFieldItem>
+            <SettingsFieldItem index={9}><SettingsFieldRow title={t("fields.outputTokenLimit")}>
               <SettingsFieldInset>
                 <Input value={form.outputTokenLimit} onChange={(event) => update("outputTokenLimit", event.target.value)} />
               </SettingsFieldInset>
-            </SettingsFieldRow>
-            <SettingsFieldRow title={t("fields.budgetTimezone")} description={t("fields.budgetTimezoneHint")}>
+            </SettingsFieldRow></SettingsFieldItem>
+            <SettingsFieldItem index={10}><SettingsFieldRow title={t("fields.budgetTimezone")} description={t("fields.budgetTimezoneHint")}>
               <SettingsFieldInset>
                 <Input value={form.budgetTimezone} onChange={(event) => update("budgetTimezone", event.target.value)} />
               </SettingsFieldInset>
-            </SettingsFieldRow>
-            <SettingsFieldRow title={t("fields.billingRetentionDays")}>
+            </SettingsFieldRow></SettingsFieldItem>
+            <SettingsFieldItem index={11}><SettingsFieldRow title={t("fields.billingRetentionDays")}>
               <SettingsFieldInset>
                 <Input value={form.billingRetentionDays} onChange={(event) => update("billingRetentionDays", event.target.value)} />
               </SettingsFieldInset>
-            </SettingsFieldRow>
+            </SettingsFieldRow></SettingsFieldItem>
           </SettingsFieldList>
 
           <div className="flex items-center gap-2">
