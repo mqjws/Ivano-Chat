@@ -65,6 +65,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install CGO dependencies (sqlite3)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libsqlite3-dev build-essential
+
       - name: Run workspace checks
         run: pnpm check
 
