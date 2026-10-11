@@ -103,6 +103,13 @@ func (h *Handler) StreamGuestChatMessage(c *gin.Context) {
 			Content: item.Content,
 		})
 	}
+	// 临时聊天输入校验要求 UserID 非零，因此先解析游客计费主体（懒创建且进程内缓存）。
+	subjectID, err := h.guestService.BillingSubjectID(c.Request.Context())
+	if err != nil {
+		writeGuestChatError(c, err)
+		return
+	}
+	input.UserID = subjectID
 	if err := appconversation.ValidateTemporaryChatInput(input); err != nil {
 		response.ErrorFrom(c, http.StatusBadRequest, errInvalidTemporaryChatMessages)
 		return
@@ -129,13 +136,6 @@ func (h *Handler) StreamGuestChatMessage(c *gin.Context) {
 		_ = h.guestService.Release(settleCtx, reservation, releaseCount, rejected)
 	}
 
-	subjectID, err := h.guestService.BillingSubjectID(c.Request.Context())
-	if err != nil {
-		releaseReservation(true, true)
-		writeGuestChatError(c, err)
-		return
-	}
-	input.UserID = subjectID
 	usageSession, ok := h.beginUsageSession(c, appconversation.SendMessageBillingInput{
 		UserID:            subjectID,
 		PlatformModelName: input.Model,
