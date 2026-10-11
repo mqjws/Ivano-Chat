@@ -1,0 +1,496 @@
+// Package guest 实现游客身份、公开配置与额度查询。
+//
+// 本包只负责身份与配置；实际模型调用、预算预留与结算在后续阶段接入。
+package guest
+
+import (
+	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"io"
+	"math"
+	"strconv"
+	"strings"
+	"time"
+
+	// 精简镜像可能缺少系统时区库，内嵌 tzdata 保证预算时区可用。
+	_ "time/tzdata"
+
+	appchannel "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/channel"
+	domainguest "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/domain/guest"
+	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/repository"
+	"github.com/google/uuid"
+)
+
+const (
+	// SettingsNamespace 是游客动态配置所在的命名空间。
+	SettingsNamespace = "guest"
+	// SessionTTL 是游客会话有效期，与浏览器端 24 小时正文缓存相互独立。
+	SessionTTL = 7 * 24 * time.Hour
+	// NanousdPerUSD 是站内账本的金额单位换算比例。
+	NanousdPerUSD int64 = 1_000_000_000
+	// DefaultBudgetTimezone 是实施文档约定的默认预算时区。
+	DefaultBudgetTimezone = "Europe/Berlin"
+
+	credentialBytes  = 32
+	budgetDateLayout = "2006-01-02"
+)
+
+// 游客动态配置键名，与 settings 注册表的 guest 命名空间一一对应。
+const (
+	SettingEnabled               = "enabled"
+	SettingModelWhitelist        = "model_whitelist"
+	SettingPerVisitorDailyBudget = "per_visitor_daily_budget_usd"
+	SettingGlobalDailyBudget     = "global_daily_budget_usd"
+	SettingDailyGenerationLimit  = "daily_generation_limit"
+	SettingRateLimitPerMinute    = "rate_limit_per_minute"
+	SettingPerVisitorConcurrency = "per_visitor_concurrency"
+	SettingGlobalConcurrency     = "global_concurrency"
+	SettingInputTokenLimit       = "input_token_limit"
+	SettingOutputTokenLimit      = "output_token_limit"
+	SettingBudgetTimezone        = "budget_timezone"
+	SettingBillingRetentionDays  = "billing_retention_days"
+)
+
+// Settings 是游客功能的运行时配置快照。
+type Settings struct {
+	Enabled                      bool
+	ModelWhitelist               []string
+	PerVisitorDailyBudgetNanousd int64
+	GlobalDailyBudgetNanousd     int64
+	DailyGenerationLimit         int
+	RateLimitPerMinute           int
+	PerVisitorConcurrency        int
+	GlobalConcurrency            int
+	InputTokenLimit              int
+	OutputTokenLimit             int
+	BudgetTimezone               string
+	BillingRetentionDays         int
+}
+
+// DefaultSettings 返回实施文档约定的游客默认值；settings 注册表的种子与之保持一致。
+func DefaultSettings() Settings {
+	return Settings{
+		Enabled:                      false,
+		ModelWhitelist:               nil,
+		PerVisitorDailyBudgetNanousd: 100_000_000,
+		GlobalDailyBudgetNanousd:     1_000_000_000,
+		DailyGenerationLimit:         20,
+		RateLimitPerMinute:           2,
+		PerVisitorConcurrency:        1,
+		GlobalConcurrency:            2,
+		InputTokenLimit:              8000,
+		OutputTokenLimit:             2048,
+		BudgetTimezone:               DefaultBudgetTimezone,
+		BillingRetentionDays:         30,
+	}
+}
+
+// settingsReader 读取动态配置命名空间。
+type settingsReader interface {
+	RuntimeValuesByNamespace(ctx context.Context, namespace string) (map[string]string, error)
+}
+
+// modelCatalog 提供白名单内的可用模型。
+type modelCatalog interface {
+	ListGuestModels(ctx context.Context, allowedRefs []string) ([]appchannel.ModelView, error)
+}
+
+// Service 实现游客会话、公开配置与额度查询。
+type Service struct {
+	repo     repository.GuestRepository
+	settings settingsReader
+	models   modelCatalog
+	now      func() time.Time
+	entropy  io.Reader
+}
+
+// NewService 创建游客应用服务。
+func NewService(repo repository.GuestRepository, settings settingsReader, models modelCatalog) *Service {
+	return &Service{
+		repo:     repo,
+		settings: settings,
+		models:   models,
+		now:      time.Now,
+		entropy:  rand.Reader,
+	}
+}
+
+// SessionResult 描述一次游客会话创建或恢复的结果。
+type SessionResult struct {
+	Session *domainguest.Session
+	// Credential 只在新建会话时返回原文；恢复时为空，浏览器继续使用已有 Cookie。
+	Credential string
+	Created    bool
+}
+
+// ConfigView 是无需会话即可读取的公开游客配置。
+type ConfigView struct {
+	Enabled        bool
+	SessionTTL     time.Duration
+	BudgetTimezone string
+	BudgetDate     string
+	ResetAt        time.Time
+	Settings       Settings
+	Models         []appchannel.ModelView
+}
+
+// UsageView 是单个游客或全站在当前预算日的额度与用量。
+type UsageView struct {
+	BudgetNanousd    int64
+	SettledNanousd   int64
+	ReservedNanousd  int64
+	ConsumedNanousd  int64
+	AvailableNanousd int64
+	RequestCount     int
+}
+
+// UsageSnapshot 汇总单个游客与全站当天的额度与用量。
+type UsageSnapshot struct {
+	BudgetTimezone string
+	BudgetDate     string
+	ResetAt        time.Time
+	Settings       Settings
+	PerVisitor     UsageView
+	Global         UsageView
+}
+
+// EnsureSession 创建或恢复游客会话。credential 为空时新建，否则按凭证恢复。
+func (s *Service) EnsureSession(ctx context.Context, credential string, meta domainguest.SessionMeta) (*SessionResult, error) {
+	settings, err := s.settingsSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !settings.Enabled {
+		return nil, ErrDisabled
+	}
+	now := s.now().UTC()
+	if trimmed := strings.TrimSpace(credential); trimmed != "" {
+		session, err := s.resolve(ctx, trimmed, now)
+		if err != nil {
+			return nil, err
+		}
+		return &SessionResult{Session: session, Created: false}, nil
+	}
+
+	plain, hash, err := newCredential(s.entropy)
+	if err != nil {
+		return nil, err
+	}
+	session := &domainguest.Session{
+		PublicID:       uuid.NewString(),
+		CredentialHash: hash,
+		Status:         domainguest.SessionStatusActive,
+		LastSeenAt:     now,
+		ExpiresAt:      now.Add(SessionTTL),
+		IPHash:         strings.TrimSpace(meta.IPHash),
+		UserAgentHash:  strings.TrimSpace(meta.UserAgentHash),
+	}
+	if err := s.repo.CreateGuestSession(ctx, session); err != nil {
+		return nil, err
+	}
+	return &SessionResult{Session: session, Credential: plain, Created: true}, nil
+}
+
+// ResolveSession 校验凭证并返回可用会话；同时刷新最近使用时间。
+func (s *Service) ResolveSession(ctx context.Context, credential string) (*domainguest.Session, error) {
+	return s.resolve(ctx, credential, s.now().UTC())
+}
+
+func (s *Service) resolve(ctx context.Context, credential string, now time.Time) (*domainguest.Session, error) {
+	trimmed := strings.TrimSpace(credential)
+	if trimmed == "" {
+		return nil, ErrSessionRequired
+	}
+	session, err := s.repo.GetGuestSessionByCredentialHash(ctx, HashCredential(trimmed))
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, ErrSessionInvalid
+		}
+		return nil, err
+	}
+	if !session.Usable(now) {
+		return nil, ErrSessionInvalid
+	}
+	if err := s.repo.TouchGuestSession(ctx, session.ID, now); err != nil {
+		return nil, err
+	}
+	session.LastSeenAt = now
+	return session, nil
+}
+
+// PublicConfig 返回公开游客配置与白名单模型。
+func (s *Service) PublicConfig(ctx context.Context) (*ConfigView, error) {
+	settings, err := s.settingsSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	budgetDate, resetAt, err := BudgetWindow(s.now().UTC(), settings.BudgetTimezone)
+	if err != nil {
+		return nil, err
+	}
+	view := &ConfigView{
+		Enabled:        settings.Enabled,
+		SessionTTL:     SessionTTL,
+		BudgetTimezone: settings.BudgetTimezone,
+		BudgetDate:     budgetDate,
+		ResetAt:        resetAt,
+		Settings:       settings,
+		Models:         []appchannel.ModelView{},
+	}
+	if !settings.Enabled || len(settings.ModelWhitelist) == 0 || s.models == nil {
+		return view, nil
+	}
+	models, err := s.models.ListGuestModels(ctx, settings.ModelWhitelist)
+	if err != nil {
+		return nil, err
+	}
+	view.Models = models
+	return view, nil
+}
+
+// Usage 返回当前游客与全站当天的额度与用量。
+func (s *Service) Usage(ctx context.Context, session *domainguest.Session) (*UsageSnapshot, error) {
+	if session == nil || session.ID == 0 {
+		return nil, ErrSessionRequired
+	}
+	settings, err := s.settingsSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	budgetDate, resetAt, err := BudgetWindow(s.now().UTC(), settings.BudgetTimezone)
+	if err != nil {
+		return nil, err
+	}
+	perVisitor, err := s.repo.GetGuestDailyUsage(ctx, session.ID, budgetDate)
+	if err != nil {
+		return nil, err
+	}
+	global, err := s.repo.GetGuestGlobalDailyUsage(ctx, budgetDate)
+	if err != nil {
+		return nil, err
+	}
+	return &UsageSnapshot{
+		BudgetTimezone: settings.BudgetTimezone,
+		BudgetDate:     budgetDate,
+		ResetAt:        resetAt,
+		Settings:       settings,
+		PerVisitor:     buildUsageView(settings.PerVisitorDailyBudgetNanousd, perVisitor),
+		Global:         buildUsageView(settings.GlobalDailyBudgetNanousd, global),
+	}, nil
+}
+
+type consumedUsage interface {
+	ConsumedNanousd() int64
+}
+
+func buildUsageView(budgetNanousd int64, usage consumedUsage) UsageView {
+	consumed := usage.ConsumedNanousd()
+	if consumed < 0 {
+		consumed = 0
+	}
+	available := budgetNanousd - consumed
+	if available < 0 {
+		available = 0
+	}
+	view := UsageView{
+		BudgetNanousd:    budgetNanousd,
+		ConsumedNanousd:  consumed,
+		AvailableNanousd: available,
+	}
+	switch item := usage.(type) {
+	case *domainguest.DailyUsage:
+		if item != nil {
+			view.SettledNanousd = item.SettledNanousd
+			view.ReservedNanousd = item.ReservedNanousd
+			view.RequestCount = item.RequestCount
+		}
+	case *domainguest.GlobalDailyUsage:
+		if item != nil {
+			view.SettledNanousd = item.SettledNanousd
+			view.ReservedNanousd = item.ReservedNanousd
+			view.RequestCount = item.RequestCount
+		}
+	}
+	return view
+}
+
+// settingsSnapshot 读取并解析游客动态配置；缺失或非法的配置项回退到默认值。
+func (s *Service) settingsSnapshot(ctx context.Context) (Settings, error) {
+	result := DefaultSettings()
+	if s.settings == nil {
+		return result, nil
+	}
+	values, err := s.settings.RuntimeValuesByNamespace(ctx, SettingsNamespace)
+	if err != nil {
+		return result, err
+	}
+	applySettings(&result, values)
+	return result, nil
+}
+
+func applySettings(target *Settings, values map[string]string) {
+	if target == nil || len(values) == 0 {
+		return
+	}
+	if value, ok := parseBoolValue(values[SettingEnabled]); ok {
+		target.Enabled = value
+	}
+	if value, ok := values[SettingModelWhitelist]; ok {
+		target.ModelWhitelist = splitList(value)
+	}
+	if value, ok := parseNanousd(values[SettingPerVisitorDailyBudget]); ok {
+		target.PerVisitorDailyBudgetNanousd = value
+	}
+	if value, ok := parseNanousd(values[SettingGlobalDailyBudget]); ok {
+		target.GlobalDailyBudgetNanousd = value
+	}
+	if value, ok := parseNonNegativeInt(values[SettingDailyGenerationLimit]); ok {
+		target.DailyGenerationLimit = value
+	}
+	if value, ok := parseNonNegativeInt(values[SettingRateLimitPerMinute]); ok && value > 0 {
+		target.RateLimitPerMinute = value
+	}
+	if value, ok := parseNonNegativeInt(values[SettingPerVisitorConcurrency]); ok && value > 0 {
+		target.PerVisitorConcurrency = value
+	}
+	if value, ok := parseNonNegativeInt(values[SettingGlobalConcurrency]); ok && value > 0 {
+		target.GlobalConcurrency = value
+	}
+	if value, ok := parseNonNegativeInt(values[SettingInputTokenLimit]); ok && value > 0 {
+		target.InputTokenLimit = value
+	}
+	if value, ok := parseNonNegativeInt(values[SettingOutputTokenLimit]); ok && value > 0 {
+		target.OutputTokenLimit = value
+	}
+	if value, ok := parseNonNegativeInt(values[SettingBillingRetentionDays]); ok {
+		target.BillingRetentionDays = value
+	}
+	if value := strings.TrimSpace(values[SettingBudgetTimezone]); value != "" {
+		if _, err := time.LoadLocation(value); err == nil {
+			target.BudgetTimezone = value
+		}
+	}
+}
+
+// BudgetWindow 返回指定时刻在预算时区下的预算日与下一次重置时间。
+// 重置时间按目标时区的日历日计算，因此夏令时切换当天不是固定 24 小时。
+func BudgetWindow(now time.Time, timezone string) (string, time.Time, error) {
+	name := strings.TrimSpace(timezone)
+	if name == "" {
+		name = DefaultBudgetTimezone
+	}
+	location, err := time.LoadLocation(name)
+	if err != nil {
+		return "", time.Time{}, ErrInvalidTimezone
+	}
+	local := now.In(location)
+	startOfDay := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, location)
+	return local.Format(budgetDateLayout), startOfDay.AddDate(0, 0, 1), nil
+}
+
+// HashCredential 计算会话凭证摘要；服务端只保存该摘要。
+func HashCredential(credential string) string {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(credential)))
+	return hex.EncodeToString(sum[:])
+}
+
+// FormatUSD 把 nanousd 金额格式化为最多 9 位小数、去掉末尾 0 的美元字符串。
+func FormatUSD(nanousd int64) string {
+	if nanousd <= 0 {
+		return "0"
+	}
+	whole := nanousd / NanousdPerUSD
+	fraction := nanousd % NanousdPerUSD
+	if fraction == 0 {
+		return strconv.FormatInt(whole, 10)
+	}
+	digits := strings.TrimRight(fmt.Sprintf("%09d", fraction), "0")
+	return strconv.FormatInt(whole, 10) + "." + digits
+}
+
+func newCredential(entropy io.Reader) (string, string, error) {
+	if entropy == nil {
+		entropy = rand.Reader
+	}
+	buffer := make([]byte, credentialBytes)
+	if _, err := io.ReadFull(entropy, buffer); err != nil {
+		return "", "", err
+	}
+	plain := base64.RawURLEncoding.EncodeToString(buffer)
+	return plain, HashCredential(plain), nil
+}
+
+func splitList(raw string) []string {
+	parts := strings.Split(raw, ",")
+	results := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			results = append(results, trimmed)
+		}
+	}
+	return results
+}
+
+func parseBoolValue(raw string) (bool, bool) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "true", "1", "yes", "on":
+		return true, true
+	case "false", "0", "no", "off":
+		return false, true
+	default:
+		return false, false
+	}
+}
+
+func parseNonNegativeInt(raw string) (int, bool) {
+	value, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || value < 0 {
+		return 0, false
+	}
+	return value, true
+}
+
+// parseNanousd 解析十进制美元字符串，按位换算为 nanousd，避免浮点误差。
+func parseNanousd(raw string) (int64, bool) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return 0, false
+	}
+	parts := strings.SplitN(trimmed, ".", 2)
+	whole, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil || whole < 0 {
+		return 0, false
+	}
+	if whole > (math.MaxInt64-NanousdPerUSD)/NanousdPerUSD {
+		return 0, false
+	}
+	fraction := int64(0)
+	if len(parts) == 2 {
+		digits := parts[1]
+		if digits == "" || strings.Trim(digits, "0123456789") != "" {
+			return 0, false
+		}
+		for _, symbol := range digits {
+			if symbol < '0' || symbol > '9' {
+				return 0, false
+			}
+		}
+		if len(digits) > 9 {
+			digits = digits[:9]
+		}
+		for len(digits) < 9 {
+			digits += "0"
+		}
+		parsed, err := strconv.ParseInt(digits, 10, 64)
+		if err != nil {
+			return 0, false
+		}
+		fraction = parsed
+	}
+	return whole*NanousdPerUSD + fraction, true
+}
