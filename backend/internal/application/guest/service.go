@@ -300,10 +300,16 @@ func (s *Service) EnsureSession(ctx context.Context, credential string, meta dom
 	now := s.now().UTC()
 	if trimmed := strings.TrimSpace(credential); trimmed != "" {
 		session, err := s.resolve(ctx, trimmed, now)
-		if err != nil {
+		switch {
+		case err == nil:
+			return &SessionResult{Session: session, Created: false}, nil
+		case errors.Is(err, ErrSessionInvalid), errors.Is(err, ErrSessionRequired):
+			// 凭证已过期、被撤销或根本不存在：按“无凭证”处理并签发新的匿名会话。
+			// 游客在服务端没有正文数据，只有按 guest_id 统计的额度；换新身份不会泄露任何内容，
+			// 但会重新获得个人额度，因此全站预算与频率 / 并发限制仍然按 IP 摘要生效。
+		default:
 			return nil, err
 		}
-		return &SessionResult{Session: session, Created: false}, nil
 	}
 
 	plain, hash, err := newCredential(s.entropy)

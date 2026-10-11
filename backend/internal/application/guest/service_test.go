@@ -282,13 +282,18 @@ func TestEnsureSessionRejectsDisabledAndInvalidCredentials(t *testing.T) {
 		t.Fatalf("expected default disabled, got %v", err)
 	}
 
+	// 失效凭证按“无凭证”处理：必须签发新会话，而不是把访客挡在门外。
 	repo := newRepoStub()
 	service := newTestService(repo, enabledSettings(nil), &modelStub{}, now)
-	if _, err := service.EnsureSession(context.Background(), "unknown-credential", domainguest.SessionMeta{}); !errors.Is(err, ErrSessionInvalid) {
-		t.Fatalf("expected ErrSessionInvalid for unknown credential, got %v", err)
+	refreshed, err := service.EnsureSession(context.Background(), "unknown-credential", domainguest.SessionMeta{})
+	if err != nil {
+		t.Fatalf("stale credential must be replaced with a new session, got %v", err)
 	}
-	if repo.created != 0 {
-		t.Fatal("unknown credential must not create a session")
+	if !refreshed.Created || refreshed.Credential == "" || refreshed.Session == nil {
+		t.Fatalf("expected a newly issued guest session, got %#v", refreshed)
+	}
+	if repo.created != 1 {
+		t.Fatalf("expected exactly one new session, got %d", repo.created)
 	}
 }
 
