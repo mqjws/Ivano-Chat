@@ -24,7 +24,10 @@
     "outputTokenLimit": "输出 Token 上限",
     "budgetTimezone": "预算时区",
     "budgetTimezoneHint": "IANA 名称，例如 Europe/Berlin；按该时区的日历日重置额度。",
-    "billingRetentionDays": "计费明细保留天数"
+    "billingRetentionDays": "计费明细保留天数",
+    "modelWhitelistEmpty": "后台还没有启用的平台模型；请先在「模型」页创建模型。",
+    "modelWhitelistSelected": "已选择 {count} 个模型",
+    "modelWhitelistUnknown": "以下名称不在后台模型列表中，保存后将不生效：{names}"
   },
   "save": "保存",
   "saving": "保存中…",

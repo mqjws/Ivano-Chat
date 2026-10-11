@@ -24,7 +24,10 @@
     "outputTokenLimit": "Output token limit",
     "budgetTimezone": "Budget timezone",
     "budgetTimezoneHint": "IANA name such as Europe/Berlin; quotas reset on that timezone's calendar day.",
-    "billingRetentionDays": "Billing detail retention (days)"
+    "billingRetentionDays": "Billing detail retention (days)",
+    "modelWhitelistEmpty": "No active platform models yet; create one on the Models page first.",
+    "modelWhitelistSelected": "{count} model(s) selected",
+    "modelWhitelistUnknown": "These names are not in the platform model list and will have no effect: {names}"
   },
   "save": "Save",
   "saving": "Saving…",

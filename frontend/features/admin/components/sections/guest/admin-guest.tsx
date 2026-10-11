@@ -14,6 +14,7 @@ import {
   type AdminGuestOverview,
   type AdminGuestRequestPage,
 } from "@/features/admin/api/guest";
+import { listAdminLLMModels } from "@/features/admin/api/llm";
 import { patchAdminSettings } from "@/features/admin/api/settings";
 import { resolveAdminErrorMessage } from "@/features/admin/utils/admin-error";
 import { resolveAccessToken } from "@/shared/auth/resolve-access-token";
@@ -78,6 +79,7 @@ export function AdminGuestPanel() {
   const [form, setForm] = React.useState<FormState>(EMPTY_FORM);
   const [overview, setOverview] = React.useState<AdminGuestOverview | null>(null);
   const [requests, setRequests] = React.useState<AdminGuestRequestPage>({ total: 0, results: [] });
+  const [platformModels, setPlatformModels] = React.useState<string[]>([]);
   const [page, setPage] = React.useState(1);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -89,13 +91,18 @@ export function AdminGuestPanel() {
     }
     setLoading(true);
     try {
-      const [nextOverview, nextRequests] = await Promise.all([
+      const [nextOverview, nextRequests, modelPage] = await Promise.all([
         getAdminGuestOverview(token),
         listAdminGuestRequests(token, { page, pageSize: 20 }),
+        listAdminLLMModels(token, { page: 1, pageSize: 200, onlyActive: true }).catch(() => ({ total: 0, results: [] })),
       ]);
       setOverview(nextOverview);
       setForm(formFromOverview(nextOverview));
       setRequests(nextRequests);
+      const names = (modelPage.results ?? [])
+        .map((item) => String((item as { platformModelName?: string }).platformModelName ?? "").trim())
+        .filter((name) => name !== "");
+      setPlatformModels(Array.from(new Set(names)).sort((left, right) => left.localeCompare(right)));
     } catch (error) {
       toast.error(resolveAdminErrorMessage(error, t("loadFailed")));
     } finally {
@@ -176,7 +183,14 @@ export function AdminGuestPanel() {
             </SettingsFieldRow>
             <SettingsFieldRow title={t("fields.modelWhitelist")} description={t("fields.modelWhitelistHint")}>
               <SettingsFieldInset>
-                <Input value={form.modelWhitelist} onChange={(event) => update("modelWhitelist", event.target.value)} placeholder="gpt-4o, claude-sonnet" />
+                <WhitelistPicker
+                  models={platformModels}
+                  selected={selectedWhitelist(form.modelWhitelist)}
+                  emptyLabel={t("fields.modelWhitelistEmpty")}
+                  selectedLabel={(count) => t("fields.modelWhitelistSelected", { count })}
+                  unknownLabel={(names) => t("fields.modelWhitelistUnknown", { names })}
+                  onToggle={(name, checked) => update("modelWhitelist", toggleWhitelist(form.modelWhitelist, name, checked, platformModels))}
+                />
               </SettingsFieldInset>
             </SettingsFieldRow>
             <SettingsFieldRow title={t("fields.perVisitorDailyBudget")}>
@@ -307,6 +321,69 @@ export function AdminGuestPanel() {
         </div>
       </SettingsSection>
     </SettingsPage>
+  );
+}
+
+function selectedWhitelist(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item !== "");
+}
+
+function toggleWhitelist(raw: string, name: string, checked: boolean, order: string[]): string {
+  const current = new Set(selectedWhitelist(raw));
+  if (checked) {
+    current.add(name);
+  } else {
+    current.delete(name);
+  }
+  const ordered = [...order.filter((item) => current.has(item)), ...[...current].filter((item) => !order.includes(item))];
+  return ordered.join(",");
+}
+
+function WhitelistPicker({
+  models,
+  selected,
+  emptyLabel,
+  selectedLabel,
+  unknownLabel,
+  onToggle,
+}: {
+  models: string[];
+  selected: string[];
+  emptyLabel: string;
+  selectedLabel: (count: number) => string;
+  unknownLabel: (names: string) => string;
+  onToggle: (name: string, checked: boolean) => void;
+}) {
+  const selectedSet = new Set(selected);
+  const unknown = selected.filter((name) => !models.includes(name));
+  return (
+    <div className="space-y-2">
+      <div className="text-xs text-muted-foreground">
+        {models.length === 0 ? emptyLabel : selectedLabel(selected.length)}
+      </div>
+      <div className="max-h-56 overflow-y-auto rounded-md border border-border/60">
+        {models.map((name) => (
+          <label key={name} className="flex cursor-pointer items-center gap-2 border-b border-border/40 px-2.5 py-1.5 text-sm last:border-b-0 hover:bg-muted/50">
+            <input
+              type="checkbox"
+              className="size-4"
+              checked={selectedSet.has(name)}
+              onChange={(event) => onToggle(name, event.target.checked)}
+            />
+            <span className="truncate">{name}</span>
+          </label>
+        ))}
+        {models.length === 0 ? (
+          <p className="px-2.5 py-2 text-xs text-muted-foreground">{emptyLabel}</p>
+        ) : null}
+      </div>
+      {unknown.length > 0 ? (
+        <p className="text-xs text-amber-600 dark:text-amber-400">{unknownLabel(unknown.join(", "))}</p>
+      ) : null}
+    </div>
   );
 }
 
