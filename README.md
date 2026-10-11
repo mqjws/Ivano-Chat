@@ -1,8 +1,6 @@
 <p align="center">
   <img src="./ico/ivano-chat.png" alt="Ivano Chat" width="600" />
 </p>
-
-
 <h1 align="center">Ivano Chat</h1>
 
 <p align="center">
