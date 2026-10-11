@@ -26,6 +26,7 @@ type UsageSession struct {
 
 	mu       sync.Mutex
 	finished bool
+	settled  *domainbilling.UsageLedger
 }
 
 // BeginUsageSession 在模型调用前固定计费策略、预留预算并启动租约续期。
@@ -70,6 +71,17 @@ func (u *UsageSession) Finish(ctx context.Context, result *SendMessageResult) er
 	return u.release(ctx)
 }
 
+// SettledLedger 返回本次运行实际结算的账本；未结算、未产生用量或释放预留时为 nil。
+// 供游客预算等旁路账本按“实际用量”结算，避免用估算值入账。
+func (u *UsageSession) SettledLedger() *domainbilling.UsageLedger {
+	if u == nil {
+		return nil
+	}
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	return u.settled
+}
+
 // Close 兜底停止续租。未 Finish 的会话不结算也不释放预留，交由租约过期与对账处理。
 func (u *UsageSession) Close() {
 	if u == nil {
@@ -104,6 +116,9 @@ func (u *UsageSession) settle(ctx context.Context, result *SendMessageResult) er
 		return err
 	}
 	ApplyUsageBilling(&result.AssistantMessage, usageLedger)
+	u.mu.Lock()
+	u.settled = usageLedger
+	u.mu.Unlock()
 	return nil
 }
 

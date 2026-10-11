@@ -23,6 +23,10 @@ var (
 	ErrDailyBudgetExceeded = apperr.New("guest.daily_budget_exceeded", "guest daily budget exceeded")
 	// ErrGlobalBudgetExceeded 表示全站游客当日预算不足。
 	ErrGlobalBudgetExceeded = apperr.New("guest.global_budget_exceeded", "guest global daily budget exceeded")
+	// ErrInputTooLarge 表示输入上下文超过游客 Token 上限。
+	ErrInputTooLarge = apperr.New("guest.input_too_large", "guest input context too large")
+	// ErrBillingSubjectUnavailable 表示游客计费主体不可用（未注入或创建失败）。
+	ErrBillingSubjectUnavailable = apperr.New("guest.billing_subject_unavailable", "guest billing subject unavailable")
 	// ErrRequestConflict 表示相同请求 ID 的内容不一致，或该请求仍在进行中。
 	ErrRequestConflict = apperr.New("guest.request_conflict", "guest request conflict")
 )

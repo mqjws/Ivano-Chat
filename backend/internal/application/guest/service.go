@@ -15,13 +15,16 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	// 精简镜像可能缺少系统时区库，内嵌 tzdata 保证预算时区可用。
 	_ "time/tzdata"
 
+	appbilling "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/billing"
 	appchannel "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/application/channel"
 	domainguest "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/domain/guest"
+	domainuser "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/domain/user"
 	"github.com/DEEIX-AI/DEEIX-Chat/backend/internal/repository"
 	"github.com/google/uuid"
 )
@@ -35,6 +38,11 @@ const (
 	NanousdPerUSD int64 = 1_000_000_000
 	// DefaultBudgetTimezone 是实施文档约定的默认预算时区。
 	DefaultBudgetTimezone = "Europe/Berlin"
+	// BillingSubjectUsername 是专用游客计费主体的用户名；该账号不可登录。
+	BillingSubjectUsername = "guest-billing-subject"
+	// estimatedCostSafetyPercent 是预留安全系数：按估算费用的 125% 预留，
+	// 覆盖推理 token、缓存写入等估算未覆盖的用量，结算时释放未使用部分。
+	estimatedCostSafetyPercent = 125
 
 	credentialBytes  = 32
 	budgetDateLayout = "2006-01-02"
@@ -95,6 +103,17 @@ type settingsReader interface {
 	RuntimeValuesByNamespace(ctx context.Context, namespace string) (map[string]string, error)
 }
 
+// billingSubjectStore 负责游客计费主体的账号读写。
+type billingSubjectStore interface {
+	GetByUsername(ctx context.Context, username string) (*domainuser.User, error)
+	CreateWithCredential(ctx context.Context, input repository.CreateWithCredentialInput) error
+}
+
+// usageEstimator 估算一次请求的站内费用上限。
+type usageEstimator interface {
+	EstimateUsageNanousd(ctx context.Context, userID uint, input appbilling.UsageEstimateInput) (int64, error)
+}
+
 // modelCatalog 提供白名单内的可用模型。
 type modelCatalog interface {
 	ListGuestModels(ctx context.Context, allowedRefs []string) ([]appchannel.ModelView, error)
@@ -102,11 +121,16 @@ type modelCatalog interface {
 
 // Service 实现游客会话、公开配置与额度查询。
 type Service struct {
-	repo     repository.GuestRepository
-	settings settingsReader
-	models   modelCatalog
-	now      func() time.Time
-	entropy  io.Reader
+	repo      repository.GuestRepository
+	settings  settingsReader
+	models    modelCatalog
+	users     billingSubjectStore
+	estimator usageEstimator
+	now       func() time.Time
+	entropy   io.Reader
+
+	subjectMu sync.Mutex
+	subjectID uint
 }
 
 // NewService 创建游客应用服务。
@@ -118,6 +142,111 @@ func NewService(repo repository.GuestRepository, settings settingsReader, models
 		now:      time.Now,
 		entropy:  rand.Reader,
 	}
+}
+
+// SetBillingDependencies 注入游客计费主体与费用估算依赖。
+func (s *Service) SetBillingDependencies(users billingSubjectStore, estimator usageEstimator) {
+	s.users = users
+	s.estimator = estimator
+}
+
+// BillingSubjectID 返回游客专用计费主体的用户 ID，必要时创建该不可登录账号。
+func (s *Service) BillingSubjectID(ctx context.Context) (uint, error) {
+	s.subjectMu.Lock()
+	defer s.subjectMu.Unlock()
+	if s.subjectID != 0 {
+		return s.subjectID, nil
+	}
+	if s.users == nil {
+		return 0, ErrBillingSubjectUnavailable
+	}
+	if existing, err := s.users.GetByUsername(ctx, BillingSubjectUsername); err == nil && existing != nil {
+		s.subjectID = existing.ID
+		return existing.ID, nil
+	} else if err != nil && !errors.Is(err, repository.ErrNotFound) {
+		return 0, err
+	}
+	created := &domainuser.User{
+		Username:    BillingSubjectUsername,
+		DisplayName: "Guest Billing Subject",
+		Role:        domainuser.RoleUser,
+		Status:      domainuser.StatusActive,
+	}
+	err := s.users.CreateWithCredential(ctx, repository.CreateWithCredentialInput{
+		User: created,
+		Credential: domainuser.Credential{
+			PasswordEnabled:   false,
+			PasswordHash:      "",
+			PasswordOrigin:    domainuser.PasswordOriginSSOPlaceholder,
+			MustResetPassword: true,
+		},
+	})
+	if err != nil {
+		// 并发启动时另一个实例可能已经创建；重新读取一次。
+		if again, readErr := s.users.GetByUsername(ctx, BillingSubjectUsername); readErr == nil && again != nil {
+			s.subjectID = again.ID
+			return again.ID, nil
+		}
+		return 0, err
+	}
+	if created.ID == 0 {
+		return 0, ErrBillingSubjectUnavailable
+	}
+	s.subjectID = created.ID
+	return created.ID, nil
+}
+
+// GenerateLimits 是生成链路需要收敛的参数上限。
+type GenerateLimits struct {
+	InputTokens  int
+	OutputTokens int
+}
+
+// GenerateLimitsFor 返回当前游客配置下的输入 / 输出 Token 上限。
+func (s *Service) GenerateLimitsFor(ctx context.Context) (GenerateLimits, error) {
+	settings, err := s.settingsSnapshot(ctx)
+	if err != nil {
+		return GenerateLimits{}, err
+	}
+	return GenerateLimits{InputTokens: settings.InputTokenLimit, OutputTokens: settings.OutputTokenLimit}, nil
+}
+
+// EstimateInput 是费用估算输入。
+type EstimateInput struct {
+	BillingSubjectID  uint
+	PlatformModelName string
+	InputTokens       int64
+	OutputTokens      int64
+}
+
+// EstimateRequestNanousd 估算一次游客请求的预留金额，含安全系数。
+func (s *Service) EstimateRequestNanousd(ctx context.Context, input EstimateInput) (int64, error) {
+	if s.estimator == nil {
+		return 0, nil
+	}
+	if input.InputTokens <= 0 && input.OutputTokens <= 0 {
+		return 0, nil
+	}
+	subjectID := input.BillingSubjectID
+	if subjectID == 0 {
+		var err error
+		subjectID, err = s.BillingSubjectID(ctx)
+		if err != nil {
+			return 0, err
+		}
+	}
+	estimate, err := s.estimator.EstimateUsageNanousd(ctx, subjectID, appbilling.UsageEstimateInput{
+		PlatformModelName: strings.TrimSpace(input.PlatformModelName),
+		InputTokens:       input.InputTokens,
+		OutputTokens:      input.OutputTokens,
+	})
+	if err != nil {
+		return 0, err
+	}
+	if estimate <= 0 {
+		return 0, nil
+	}
+	return estimate * estimatedCostSafetyPercent / 100, nil
 }
 
 // SessionResult 描述一次游客会话创建或恢复的结果。
@@ -290,10 +419,14 @@ type consumedUsage interface {
 
 // RequestInput 是一次游客生成请求在预留阶段需要的上下文。
 type RequestInput struct {
-	Session         *domainguest.Session
-	RequestID       string
-	ModelRef        string
-	InputDigest     string
+	Session     *domainguest.Session
+	RequestID   string
+	ModelRef    string
+	InputDigest string
+	// InputTokens / OutputTokens 用于自动估算预留金额；
+	// EstimateNanousd 非零时优先使用调用方给定的金额。
+	InputTokens     int64
+	OutputTokens    int64
 	EstimateNanousd int64
 }
 
@@ -331,10 +464,28 @@ func (s *Service) Reserve(ctx context.Context, input RequestInput) (*Reservation
 	if !modelAllowed(settings.ModelWhitelist, input.ModelRef) {
 		return nil, ErrModelNotAllowed
 	}
+	if settings.InputTokenLimit > 0 && input.InputTokens > int64(settings.InputTokenLimit) {
+		return nil, ErrInputTooLarge
+	}
 	now := s.now().UTC()
 	budgetDate, _, err := BudgetWindow(now, settings.BudgetTimezone)
 	if err != nil {
 		return nil, err
+	}
+	estimateNanousd := input.EstimateNanousd
+	if estimateNanousd == 0 && (input.InputTokens > 0 || input.OutputTokens > 0) {
+		outputTokens := input.OutputTokens
+		if outputTokens <= 0 {
+			outputTokens = int64(settings.OutputTokenLimit)
+		}
+		estimateNanousd, err = s.EstimateRequestNanousd(ctx, EstimateInput{
+			PlatformModelName: input.ModelRef,
+			InputTokens:       input.InputTokens,
+			OutputTokens:      outputTokens,
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if existing, err := s.repo.GetGuestRequest(ctx, input.Session.ID, requestID); err == nil && existing != nil {
@@ -385,7 +536,7 @@ func (s *Service) Reserve(ctx context.Context, input RequestInput) (*Reservation
 		ModelRef:        strings.TrimSpace(input.ModelRef),
 		InputDigest:     strings.TrimSpace(input.InputDigest),
 		BillingRefNo:    BillingRefNo(input.Session.PublicID, requestID),
-		EstimateNanousd: input.EstimateNanousd,
+		EstimateNanousd: estimateNanousd,
 		Now:             now,
 	}, domainguest.ReservationLimits{
 		PerVisitorDailyNanousd: settings.PerVisitorDailyBudgetNanousd,

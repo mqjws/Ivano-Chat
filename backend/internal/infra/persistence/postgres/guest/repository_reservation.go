@@ -124,15 +124,22 @@ func (r *Repo) SettleGuestRequest(ctx context.Context, sessionID uint, requestID
 		if err != nil {
 			return err
 		}
+		// 待核对的结算保留预留额度，避免把尚未确认的上游费用当成可再用预算。
+		personalReserved := personal.ReservedNanousd
+		globalReserved := global.ReservedNanousd
+		if requestStatus != domainguest.RequestStatusNeedsReview {
+			personalReserved = remainingGuestReservation(personal.ReservedNanousd, record.ReservedNanousd)
+			globalReserved = remainingGuestReservation(global.ReservedNanousd, record.ReservedNanousd)
+		}
 		if err := tx.Model(&model.GuestDailyUsage{}).Where("id = ?", personal.ID).Updates(map[string]any{
-			"reserved_nanousd": remainingGuestReservation(personal.ReservedNanousd, record.ReservedNanousd),
+			"reserved_nanousd": personalReserved,
 			"settled_nanousd":  personal.SettledNanousd + settledNanousd,
 			"updated_at":       normalized,
 		}).Error; err != nil {
 			return dberror.Translate(err)
 		}
 		if err := tx.Model(&model.GuestGlobalDailyUsage{}).Where("id = ?", global.ID).Updates(map[string]any{
-			"reserved_nanousd": remainingGuestReservation(global.ReservedNanousd, record.ReservedNanousd),
+			"reserved_nanousd": globalReserved,
 			"settled_nanousd":  global.SettledNanousd + settledNanousd,
 			"updated_at":       normalized,
 		}).Error; err != nil {

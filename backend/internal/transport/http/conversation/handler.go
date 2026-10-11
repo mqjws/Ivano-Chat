@@ -30,6 +30,8 @@ type Handler struct {
 	// shutdown 触发时订阅型长连接（run 对账流、run 观看流）立即退出，
 	// 让优雅关停不被常驻 SSE 拖到超时；客户端依靠既有重连逻辑恢复。
 	shutdown *lifecycle.Shutdown
+	// guestService 处理游客流式聊天；未注入时游客接口返回 503。
+	guestService GuestService
 }
 
 func normalizeStreamEventPayload(eventType string, payload map[string]any) map[string]any {

@@ -155,7 +155,11 @@ func NewEngine(cfg *config.Runtime, log *zap.Logger, modules Modules, hc HealthC
 	if modules.Guest != nil {
 		guestSession := api.Group("")
 		guestSession.Use(middleware.RateLimit(limiter, cfg))
+		guestSession.Use(modules.Guest.SessionMiddleware())
 		modules.Guest.RegisterSessionRoutes(guestSession)
+		if modules.Conversation != nil {
+			modules.Conversation.RegisterGuestRoutes(guestSession)
+		}
 	}
 
 	authRequired := api.Group("")

@@ -8,9 +8,12 @@ func (m *Module) RegisterPublicRoutes(api *gin.RouterGroup) {
 	api.POST("/guest/session", m.Handler.CreateSession)
 }
 
-// RegisterSessionRoutes 注册需要游客会话凭证的路由。
+// SessionMiddleware 返回游客会话中间件，供服务端组装共享的游客凭证路由组。
+func (m *Module) SessionMiddleware() gin.HandlerFunc {
+	return SessionMiddleware(m.Handler.service)
+}
+
+// RegisterSessionRoutes 注册需要游客会话凭证的路由；调用方需先挂载 SessionMiddleware。
 func (m *Module) RegisterSessionRoutes(api *gin.RouterGroup) {
-	group := api.Group("/guest")
-	group.Use(SessionMiddleware(m.Handler.service))
-	group.GET("/me", m.Handler.GetMe)
+	api.GET("/guest/me", m.Handler.GetMe)
 }

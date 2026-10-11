@@ -2,6 +2,9 @@ package guest
 
 import "github.com/DEEIX-AI/DEEIX-Chat/backend/internal/shared/apperr"
 
+// ErrSessionRequired 是缺少游客会话凭证时的对外错误契约，供其他传输模块复用。
+var ErrSessionRequired = guestSessionRequiredError
+
 var (
 	// guestSessionRequiredError 表示请求缺少游客会话凭证。
 	guestSessionRequiredError = apperr.New("guest.session_required", "guest session required")
