@@ -30,5 +30,8 @@
   "usedBudget": "Used {amount}",
   "usedRequests": "Requests {used}/{total}",
   "resetAt": "Resets {time}",
-  "lastCostWithAmount": "This call cost {amount}"
+  "lastCostWithAmount": "This call cost {amount}",
+  "storageHint": "The conversation is stored in this browser (IndexedDB), expires 24 hours after the last update, and is never synced to an account.",
+  "cacheUnavailable": "This browser cannot persist the temporary conversation. Refreshing or closing the page will lose it.",
+  "interrupted": "The previous generation was interrupted by a refresh or page close. It was not resent automatically."
 }

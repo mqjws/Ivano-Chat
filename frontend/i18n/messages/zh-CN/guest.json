@@ -30,5 +30,8 @@
   "usedBudget": "已用 {amount}",
   "usedRequests": "次数 {used}/{total}",
   "resetAt": "重置 {time}",
-  "lastCostWithAmount": "本次调用费用 {amount}"
+  "lastCostWithAmount": "本次调用费用 {amount}",
+  "storageHint": "对话保存在当前浏览器（IndexedDB），最后更新后 24 小时过期，不同步到账号。",
+  "cacheUnavailable": "当前浏览器无法保存临时对话，刷新或关闭页面后会丢失。",
+  "interrupted": "上次生成在刷新或关闭页面时被中断，未自动重新发送。"
 }

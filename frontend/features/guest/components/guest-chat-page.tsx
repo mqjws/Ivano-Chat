@@ -17,6 +17,15 @@ import {
   type GuestMeDTO,
   type GuestModelDTO,
 } from "@/shared/api/guest";
+import {
+  clearGuestChat,
+  isGuestChatStoreAvailable,
+  loadGuestChat,
+  notifyGuestChatChanged,
+  saveGuestChat,
+  subscribeGuestChatChanges,
+  type GuestStoredMessage,
+} from "@/features/guest/model/guest-chat-store";
 import { StreamdownRender } from "@/shared/components/markdown/streamdown-render";
 import { createSecureUUID } from "@/shared/lib/secure-id";
 import { cn } from "@/lib/utils";
@@ -76,8 +85,12 @@ export function GuestChatPage() {
   const [messages, setMessages] = React.useState<GuestMessage[]>([]);
   const [sending, setSending] = React.useState(false);
   const [lastCost, setLastCost] = React.useState<{ nanousd: number; usd: string } | null>(null);
+  const [guestId, setGuestId] = React.useState("");
+  const [storeAvailable, setStoreAvailable] = React.useState(true);
   const abortRef = React.useRef<AbortController | null>(null);
   const sessionIDRef = React.useRef<string>(createSecureUUID());
+  const generationRef = React.useRef(0);
+  const sendingRef = React.useRef(false);
 
   const refreshMe = React.useCallback(async () => {
     try {
@@ -103,16 +116,51 @@ export function GuestChatPage() {
           setFatalError(t("disabled"));
           return;
         }
-        await createGuestSession();
+        const session = await createGuestSession();
         const snapshot = await getGuestMe();
         if (!active) {
           return;
         }
+        setGuestId(session.guestId);
         setMe(snapshot);
         const firstModel = nextConfig.models[0]?.platformModelName ?? "";
         setModel(firstModel);
         if (nextConfig.models.length === 0) {
           setNotice(t("noModels"));
+        }
+        const available = await isGuestChatStoreAvailable();
+        if (!active) {
+          return;
+        }
+        setStoreAvailable(available);
+        if (!available) {
+          return;
+        }
+        const cached = await loadGuestChat();
+        if (!active || !cached || cached.messages.length === 0) {
+          return;
+        }
+        const lastIndex = cached.messages.length - 1;
+        setMessages(
+          cached.messages.map((item, index) => {
+            const interrupted = cached.interrupted && index === lastIndex && item.role === "assistant";
+            return {
+              id: item.id,
+              role: item.role,
+              content: item.content,
+              failed: interrupted,
+              errorText: interrupted ? t("interrupted") : undefined,
+            } satisfies GuestMessage;
+          }),
+        );
+        if (cached.model) {
+          setModel(cached.model);
+        }
+        if (cached.sessionID) {
+          sessionIDRef.current = cached.sessionID;
+        }
+        if (cached.interrupted) {
+          setNotice(t("interrupted"));
         }
       } catch (error) {
         if (active) {
@@ -130,6 +178,67 @@ export function GuestChatPage() {
     };
   }, [t]);
 
+  // 节流保存：消息 / 模型变化后 500ms 落库一次；流式分片不会逐片写库。
+  React.useEffect(() => {
+    if (!guestId || !storeAvailable) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      const at = Date.now();
+      const stored: GuestStoredMessage[] = messages.map((item) => ({
+        id: item.id,
+        role: item.role,
+        content: item.content,
+        at,
+        costUSD: item.costUSD,
+      }));
+      void saveGuestChat({
+        guestId,
+        sessionID: sessionIDRef.current,
+        model,
+        messages: stored,
+        interrupted: sendingRef.current,
+      }).then((saved) => {
+        if (saved) {
+          notifyGuestChatChanged("update");
+        }
+      });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [guestId, messages, model, storeAvailable]);
+
+  // 多标签页：清空同步清空；更新在空闲时重新加载，生成中不覆盖本地内容。
+  React.useEffect(() => {
+    if (!storeAvailable) {
+      return;
+    }
+    return subscribeGuestChatChanges((event) => {
+      if (event.type === "clear") {
+        generationRef.current += 1;
+        setMessages([]);
+        setLastCost(null);
+        setNotice(null);
+        return;
+      }
+      if (sendingRef.current) {
+        return;
+      }
+      void loadGuestChat().then((snapshot) => {
+        if (!snapshot) {
+          return;
+        }
+        setMessages(
+          snapshot.messages.map((item) => ({
+            id: item.id,
+            role: item.role,
+            content: item.content,
+            costUSD: item.costUSD,
+          } satisfies GuestMessage)),
+        );
+      });
+    });
+  }, [storeAvailable]);
+
   const pushAssistantDelta = React.useCallback((messageID: string, delta: string) => {
     setMessages((current) =>
       current.map((item) =>
@@ -145,9 +254,11 @@ export function GuestChatPage() {
         return;
       }
       setSending(true);
+      sendingRef.current = true;
       setNotice(null);
       const controller = new AbortController();
       abortRef.current = controller;
+      const generation = generationRef.current;
       let usageCost: number | undefined;
       try {
         const payloadMessages = [
@@ -162,7 +273,12 @@ export function GuestChatPage() {
             messages: payloadMessages,
           },
           {
-            onDelta: (delta) => pushAssistantDelta(assistantID, delta),
+            onDelta: (delta) => {
+              if (generationRef.current !== generation) {
+                return;
+              }
+              pushAssistantDelta(assistantID, delta);
+            },
             onUsage: (event) => {
               const input = Number(event.input_tokens ?? 0);
               const output = Number(event.output_tokens ?? 0);
@@ -194,6 +310,9 @@ export function GuestChatPage() {
         }
         await refreshMe();
       } catch (error) {
+        if (generationRef.current !== generation) {
+          return;
+        }
         if (controller.signal.aborted) {
           setMessages((current) =>
             current.map((item) =>
@@ -213,6 +332,7 @@ export function GuestChatPage() {
         }
       } finally {
         abortRef.current = null;
+        sendingRef.current = false;
         setSending(false);
       }
     },
@@ -270,11 +390,13 @@ export function GuestChatPage() {
   }, [messages, runTurn, sending]);
 
   const handleNewChat = React.useCallback(() => {
+    generationRef.current += 1;
     abortRef.current?.abort();
     sessionIDRef.current = createSecureUUID();
     setMessages([]);
     setNotice(null);
     setLastCost(null);
+    void clearGuestChat().then(() => notifyGuestChatChanged("clear"));
   }, []);
 
   if (loading) {
@@ -310,7 +432,9 @@ export function GuestChatPage() {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-base font-semibold text-foreground">{t("title")}</h1>
-          <p className="text-xs text-muted-foreground">{t("memoryWarning")}</p>
+          <p className="text-xs text-muted-foreground">
+            {storeAvailable ? t("storageHint") : t("cacheUnavailable")}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/login" className="text-xs font-medium text-muted-foreground hover:text-foreground">
